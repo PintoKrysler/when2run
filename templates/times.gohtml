@@ -1,0 +1,15 @@
+{{template "header" .}}
+<h1>{{.Title}}</h1>
+{{template "nav" .}}
+Your times are :
+{{range .Data.List}}
+  <div class="list-group">
+    <a href="#" class="list-group-item">
+      <h4 class="list-group-item-heading">{{.Ts}}</h4>
+      <p class="list-group-item-text">Temp :{{.TempValues.Temp}}.</p>
+      <p class="list-group-item-text">Temp Min:{{.TempValues.TempMin}}.</p>
+      <p class="list-group-item-text">Temp Max:{{.TempValues.TempMax}}.</p>
+    </a>
+  </div>
+{{end}}
+{{template "footer"}}

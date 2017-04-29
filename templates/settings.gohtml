@@ -1,0 +1,27 @@
+{{template "header" .}}
+<h1>{{.Title}}</h1>
+
+{{template "nav" .}}
+<form action="/setSettings" method="post">
+  <div class="form-group">
+    <label for="minTemp">Location</label>
+    <input type="text" class="form-control" id="minTemp" name="location" placeholder="Lakewood,CO">
+  </div>
+  <div class="form-group">
+    <label for="minTemp">Min Temperature</label>
+    <div class="input-group">
+    <input type="text" class="form-control" id="minTemp" name="minTemp" placeholder="80">
+    <div class="input-group-addon">F</div>
+  </div>
+  </div>
+  <div class="form-group">
+    <label for="maxTemp">Max Temperature</label>
+    <div class="input-group">
+      <input type="text" class="form-control" id="maxTemp" name="maxTemp" placeholder="80">
+      <div class="input-group-addon">F</div>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-default">Get Running Times</button>
+</form>
+
+{{template "footer"}}

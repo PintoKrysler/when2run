@@ -1,0 +1,7 @@
+{{template "header" .}}
+<h1>{{.Title}}</h1>
+{{template "nav" .}}
+{{if .FirstName}}
+  Hello {{.FirstName}}
+{{end}}
+{{template "footer"}}
