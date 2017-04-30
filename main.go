@@ -7,15 +7,16 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 var tpl *template.Template
 
-//"encoding/json"
-// "fmt"
-// "io/ioutil"
-// "log"
-// "net/http"
+type settings struct {
+	MinTemp int
+	MaxTemp int
+}
 
 //ResponseMain ...
 type responseMain struct {
@@ -26,8 +27,9 @@ type responseMain struct {
 
 //ResponseElem ...
 type responseElem struct {
-	Ts         int          `json:"dt"`
-	TempValues responseMain `json:"main"`
+	Ts           int          `json:"dt"`
+	TempValues   responseMain `json:"main"`
+	Ts_formatted time.Time
 }
 
 // Response ...
@@ -47,6 +49,11 @@ func init() {
 }
 
 func main() {
+
+	userSettings := settings{
+		MinTemp: 0,
+		MaxTemp: 100,
+	}
 
 	http.HandleFunc("/account", accountHandler)
 	http.HandleFunc("/settings", settingsHandler)
@@ -124,10 +131,19 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 
 	// post request, http.MethodPost is a constant
 	if req.Method == http.MethodPost {
-		// minTemp := req.FormValue("minTemp")
-		// maxTemp := req.FormValue("maxTemp")
+		minTemp := req.FormValue("minTemp")
+		maxTemp := req.FormValue("maxTemp")
+		fmt.Println("VALUES")
+		fmt.Println(maxTemp)
+		if minTemp != "" {
+			fmt.Println(minTemp)
+			userSettings.MinTemp = minTemp
+		}
+		if maxTemp != "" {
+			fmt.Println(maxTemp)
+			userSettings.MaxTemp = maxTemp
+		}
 		var data = makeWeatherAPIcall()
-		fmt.Println("Data", data)
 		templateData.Data = data
 
 		err := tpl.ExecuteTemplate(w, "times.gohtml", templateData)
@@ -139,7 +155,7 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 
 func makeWeatherAPIcall() responsetype {
 	apiKey := "4793867f02934a10b3033be4d68f385c"
-	baseURL := "http://api.openweathermap.org/data/2.5/forecast?q=lakewood,co"
+	baseURL := "http://api.openweathermap.org/data/2.5/forecast?q=lakewood,co&units=imperial"
 	query := baseURL + "&appid=" + apiKey + "&id=5427946"
 
 	res, err := http.Get(query)
@@ -154,6 +170,22 @@ func makeWeatherAPIcall() responsetype {
 
 	var r = responsetype{}
 	json.Unmarshal(response, &r)
+	r = parseData(r)
 
 	return r
+}
+
+// This function parses the Weather API data
+// Transforms ts into readable data for the view
+func parseData(data responsetype) responsetype {
+
+	for i := 0; i < len(data.List); i++ {
+		ts_sting := strconv.Itoa(data.List[i].Ts)
+		ts_formatted, err := strconv.ParseInt(ts_sting, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		data.List[i].Ts_formatted = time.Unix(ts_formatted, 0)
+	}
+	return data
 }
