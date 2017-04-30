@@ -2,14 +2,16 @@
 <h1>{{.Title}}</h1>
 {{template "nav" .}}
 Your times are :
+<div class="list-group">
 {{range .Data.List}}
-  <div class="list-group">
+
     <a href="#" class="list-group-item">
-      <h4 class="list-group-item-heading">{{.Ts_formatted}}</h4>
+      <h4 class="list-group-item-heading">{{.Ts_formatted}} {{if .GoRun}} <span class="text-right" style="float:right">GO RUNNING <span class="glyphicon glyphicon-thumbs-up" aria-hidden="true"></span></span>{{end}}</h4>
+
       <p class="list-group-item-text">Temp :{{.TempValues.Temp}}.</p>
       <p class="list-group-item-text">Temp Min:{{.TempValues.TempMin}}.</p>
       <p class="list-group-item-text">Temp Max:{{.TempValues.TempMax}}.</p>
     </a>
-  </div>
 {{end}}
+  </div>
 {{template "footer"}}

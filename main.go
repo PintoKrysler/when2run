@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -9,13 +10,24 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	_ "github.com/lib/pq"
 )
 
 var tpl *template.Template
 
+const (
+	minDefaultTemperature float64 = 0
+	maxDefaultTemperature float64 = 110
+	DB_USER                       = "postgres"
+	DB_PASSWORD                   = "postgres"
+	DB_NAME                       = "when2run"
+)
+
+// Settings
 type settings struct {
-	MinTemp int
-	MaxTemp int
+	MinTemp float64
+	MaxTemp float64
 }
 
 //ResponseMain ...
@@ -30,6 +42,7 @@ type responseElem struct {
 	Ts           int          `json:"dt"`
 	TempValues   responseMain `json:"main"`
 	Ts_formatted time.Time
+	GoRun        bool
 }
 
 // Response ...
@@ -37,6 +50,7 @@ type responsetype struct {
 	List []responseElem `json:"list"`
 }
 
+// tplData
 type tplData struct {
 	Title     string
 	FirstName string
@@ -46,14 +60,15 @@ type tplData struct {
 
 func init() {
 	tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
+	connectDB()
+}
+
+var userSettings = settings{
+	MinTemp: minDefaultTemperature,
+	MaxTemp: maxDefaultTemperature,
 }
 
 func main() {
-
-	userSettings := settings{
-		MinTemp: 0,
-		MaxTemp: 100,
-	}
 
 	http.HandleFunc("/account", accountHandler)
 	http.HandleFunc("/settings", settingsHandler)
@@ -133,16 +148,24 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
 		minTemp := req.FormValue("minTemp")
 		maxTemp := req.FormValue("maxTemp")
-		fmt.Println("VALUES")
-		fmt.Println(maxTemp)
+		fmt.Println("values passed", minTemp, maxTemp)
 		if minTemp != "" {
 			fmt.Println(minTemp)
-			userSettings.MinTemp = minTemp
+			val, err := strconv.ParseFloat(minTemp, 64)
+			if err != nil {
+				log.Println(err)
+			}
+			userSettings.MinTemp = val
 		}
 		if maxTemp != "" {
 			fmt.Println(maxTemp)
-			userSettings.MaxTemp = maxTemp
+			val, err := strconv.ParseFloat(maxTemp, 64)
+			if err != nil {
+				log.Println(err)
+			}
+			userSettings.MaxTemp = val
 		}
+
 		var data = makeWeatherAPIcall()
 		templateData.Data = data
 
@@ -177,15 +200,52 @@ func makeWeatherAPIcall() responsetype {
 
 // This function parses the Weather API data
 // Transforms ts into readable data for the view
+//
 func parseData(data responsetype) responsetype {
-
 	for i := 0; i < len(data.List); i++ {
-		ts_sting := strconv.Itoa(data.List[i].Ts)
+		elem := data.List[i]
+		ts_sting := strconv.Itoa(elem.Ts)
 		ts_formatted, err := strconv.ParseInt(ts_sting, 10, 64)
 		if err != nil {
 			panic(err)
 		}
 		data.List[i].Ts_formatted = time.Unix(ts_formatted, 0)
+		// fmt.Println(userSettings.MinTemp)
+		// fmt.Println(userSettings.MaxTemp)
+		// fmt.Println(elem.TempValues.TempMin)
+		// fmt.Println(elem.TempValues.TempMax)
+		if userSettings.MinTemp <= elem.TempValues.TempMin && userSettings.MaxTemp >= elem.TempValues.TempMax {
+			// fmt.Println("Between Min and max")
+			data.List[i].GoRun = true
+		}
+
 	}
 	return data
+}
+
+func connectDB() {
+	db, err := sql.Open("postgres", "user="+DB_USER+" password="+DB_PASSWORD+" dbname="+DB_NAME+" sslmode=disable")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// insert in DB
+	var userid int = 1
+	//err = db.QueryRow(`INSERT INTO USUARIO(id,name) VALUES(2,'kevin') RETURNING id`).Scan(&userid)
+	fmt.Println("userid ", userid)
+	rows, err := db.Query(`SELECT * FROM usuario`)
+	defer rows.Close()
+
+	var (
+		id   int
+		name string
+	)
+	for rows.Next() {
+		err := rows.Scan(&id, &name)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(id, name)
+	}
+
 }
