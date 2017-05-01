@@ -58,15 +58,35 @@ type tplData struct {
 	Data      responsetype
 }
 
+type user struct {
+	Email    string
+	Password string
+}
+
+type app struct {
+	User        user
+	UserLogged  bool
+	CurrentView string
+	Data        tplData
+}
+
+var myapp = app{
+	UserLogged: false,
+}
+
 func init() {
 	tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
 	connectDB()
+	//insertUser()
+	getUsers()
 }
 
 var userSettings = settings{
 	MinTemp: minDefaultTemperature,
 	MaxTemp: maxDefaultTemperature,
 }
+
+var database *sql.DB
 
 func main() {
 
@@ -75,6 +95,8 @@ func main() {
 	http.HandleFunc("/createUser", createUserHandler)
 	http.HandleFunc("/setSettings", setSettingsHandler)
 	http.Handle("/favicon.ico", http.NotFoundHandler())
+	http.HandleFunc("/logout", logoutHandler)
+	http.HandleFunc("/login", loginHandler)
 
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
@@ -89,6 +111,7 @@ func indexHandler(w http.ResponseWriter, req *http.Request) {
 		Title:     "Index",
 		TabActive: "index",
 	}
+	myapp.CurrentView = "index"
 
 	err := tpl.ExecuteTemplate(w, "index.gohtml", templateData)
 
@@ -104,6 +127,7 @@ func settingsHandler(w http.ResponseWriter, req *http.Request) {
 		Title:     "Settings",
 		TabActive: "settings",
 	}
+	myapp.CurrentView = "settings"
 	err := tpl.ExecuteTemplate(w, "settings.gohtml", templateData)
 	if err != nil {
 		log.Println(err)
@@ -115,7 +139,10 @@ func accountHandler(w http.ResponseWriter, req *http.Request) {
 		Title:     "Account",
 		TabActive: "account",
 	}
-	err := tpl.ExecuteTemplate(w, "account.gohtml", templateData)
+	myapp.CurrentView = "account"
+	myapp.Data = templateData
+
+	err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
 	if err != nil {
 		log.Println(err)
 	}
@@ -129,13 +156,66 @@ func createUserHandler(w http.ResponseWriter, req *http.Request) {
 
 	// post request, http.MethodPost is a constant
 	if req.Method == http.MethodPost {
-		userName := req.FormValue("uname")
-		templateData.FirstName = userName
-		err := tpl.ExecuteTemplate(w, "account.gohtml", templateData)
+		email := req.FormValue("email")
+		password := req.FormValue("password")
+		inserted := insertUser(email, password)
+		if inserted {
+			myapp.UserLogged = true
+			myapp.User = user{email, password}
+
+		}
+		myapp.Data = templateData
+		err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
 		if err != nil {
 			log.Println(err)
 		}
 	}
+}
+
+func logoutHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method == http.MethodPost {
+		if myapp.UserLogged {
+			myapp.UserLogged = false
+			myapp.User = user{}
+			templateData := tplData{
+				Title:     "Account",
+				TabActive: "account",
+			}
+			myapp.Data = templateData
+			err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
+			if err != nil {
+				log.Println(err)
+			}
+		}
+	}
+}
+
+func loginHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method == http.MethodPost {
+		email := req.FormValue("email")
+		password := req.FormValue("password")
+		loggedIn := login(email, password)
+		fmt.Println(loggedIn)
+		//myapp.Data = templateData
+		err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+}
+
+func login(email string, password string) bool {
+	var success = false
+	if !myapp.UserLogged {
+		// Find a user with email and password match
+		foundUser := getUser(email)
+		if foundUser {
+			myapp.UserLogged = true
+			myapp.User = user{email, password}
+			success = true
+		}
+	}
+	return success
 }
 
 func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
@@ -143,7 +223,7 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 		Title:     "Your Running Times",
 		TabActive: "times",
 	}
-
+	myapp.CurrentView = "settings"
 	// post request, http.MethodPost is a constant
 	if req.Method == http.MethodPost {
 		minTemp := req.FormValue("minTemp")
@@ -224,28 +304,55 @@ func parseData(data responsetype) responsetype {
 }
 
 func connectDB() {
-	db, err := sql.Open("postgres", "user="+DB_USER+" password="+DB_PASSWORD+" dbname="+DB_NAME+" sslmode=disable")
+	database_conn, err := sql.Open("postgres", "user="+DB_USER+" password="+DB_PASSWORD+" dbname="+DB_NAME+" sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// insert in DB
-	var userid int = 1
-	//err = db.QueryRow(`INSERT INTO USUARIO(id,name) VALUES(2,'kevin') RETURNING id`).Scan(&userid)
-	fmt.Println("userid ", userid)
-	rows, err := db.Query(`SELECT * FROM usuario`)
+	database = database_conn
+}
+func getUsers() {
+	rows, err := database.Query(`SELECT * FROM usuario`)
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer rows.Close()
 
 	var (
-		id   int
-		name string
+		email    string
+		password string
 	)
 	for rows.Next() {
-		err := rows.Scan(&id, &name)
+		err := rows.Scan(&email, &password)
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(id, name)
+		fmt.Println(email, password)
 	}
+}
 
+func getUser(email string) bool {
+	u := user{}
+	var found bool = false
+	err := database.QueryRow("SELECT * FROM usuario WHERE email=?", email).Scan(&u)
+	switch {
+	case err == sql.ErrNoRows:
+		found = false
+	case err != nil:
+		log.Fatal(err)
+	default:
+		fmt.Printf("Email is %s\n", u.Email)
+		found = true
+	}
+	return found
+}
+
+func insertUser(email string, password string) bool {
+	var userid string
+	err := database.QueryRow("INSERT INTO USUARIO (email,password) VALUES('" + email + "','" + password + "') RETURNING email").Scan(&userid)
+	if err != nil {
+		log.Fatal(err)
+		return false
+	}
+	fmt.Println("userid created", userid)
+	return true
 }
