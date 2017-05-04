@@ -290,12 +290,7 @@ func parseData(data responsetype) responsetype {
 			panic(err)
 		}
 		data.List[i].Ts_formatted = time.Unix(ts_formatted, 0)
-		// fmt.Println(userSettings.MinTemp)
-		// fmt.Println(userSettings.MaxTemp)
-		// fmt.Println(elem.TempValues.TempMin)
-		// fmt.Println(elem.TempValues.TempMax)
 		if userSettings.MinTemp <= elem.TempValues.TempMin && userSettings.MaxTemp >= elem.TempValues.TempMax {
-			// fmt.Println("Between Min and max")
 			data.List[i].GoRun = true
 		}
 
