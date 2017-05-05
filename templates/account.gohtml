@@ -1,44 +1,19 @@
 {{template "header" .Data}}
 <h1>{{.Data.Title}}</h1>
 {{template "nav" .Data}}
-
+{{if .MsgError}}
+<div class="alert alert-danger x_alert_msg" role="alert">
+  Error ocurred : {{.MsgError}}
+</div>
+{{end}}
 {{if not .UserLogged}}
-<h4>CREATE AN ACCOUNT</h4>
-<form action="/createUser" method="post">
-  <div class="form-group">
-    <label for="email">Email</label>
-    <input  type="email" class="form-control" id="email" name="email" placeholder="yourname@yourdomain">
-  </div>
-  <div class="form-group">
-    <label for="password">Password</label>
-    <div class="input-group">
-    <input type="text" class="form-control" id="password" name="password">
-  </div>
-  </div>
-  <button type="submit" class="btn btn-default">Sign up</button>
-</form>
-<h4>LOG IN</h4>
-<form action="/login" method="post">
-  <div class="form-group">
-    <label for="email">Email</label>
-    <input  type="email" class="form-control" id="email" name="email" placeholder="yourname@yourdomain">
-  </div>
-  <div class="form-group">
-    <label for="password">Password</label>
-    <div class="input-group">
-    <input type="text" class="form-control" id="password" name="password">
-  </div>
-  </div>
-  <button type="submit" class="btn btn-default">Sign in</button>
-</form>
+  {{template "login" .Data}}
 {{else}}
   <div class="alert alert-success" role="alert">
     Hello {{.User.Email}}, You are Logged in
   </div>
   <form action="/logout" method="post">
-
     <button type="submit" class="btn btn-default">Log Out</button>
   </form>
 {{end}}
-
 {{template "footer"}}

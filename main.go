@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -68,6 +69,7 @@ type app struct {
 	UserLogged  bool
 	CurrentView string
 	Data        tplData
+	MsgError    string
 }
 
 var myapp = app{
@@ -77,7 +79,6 @@ var myapp = app{
 func init() {
 	tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
 	connectDB()
-	//insertUser()
 	getUsers()
 }
 
@@ -195,12 +196,13 @@ func loginHandler(w http.ResponseWriter, req *http.Request) {
 		email := req.FormValue("email")
 		password := req.FormValue("password")
 		loggedIn := login(email, password)
-		fmt.Println(loggedIn)
-		//myapp.Data = templateData
-		err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
-		if err != nil {
-			log.Println(err)
+		if !loggedIn {
+			log.Println("Authentication error")
 		}
+	}
+	err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
+	if err != nil {
+		log.Println(err)
 	}
 }
 
@@ -208,12 +210,26 @@ func login(email string, password string) bool {
 	var success = false
 	if !myapp.UserLogged {
 		// Find a user with email and password match
-		foundUser := getUser(email)
-		if foundUser {
-			myapp.UserLogged = true
-			myapp.User = user{email, password}
-			success = true
+		foundUser, err := getUser(email)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				// User does not exists
+				myapp.MsgError = "User account does not exists"
+			} else {
+				log.Println(err)
+			}
+		} else {
+			if strings.Trim(foundUser.Password, " ") == strings.Trim(password, " ") {
+				// Authentication passed
+				myapp.UserLogged = true
+				myapp.User = user{Email: foundUser.Email, Password: foundUser.Password}
+				success = true
+			} else {
+				// Authentication error
+				myapp.MsgError = "Authentication Error"
+			}
 		}
+
 	}
 	return success
 }
@@ -228,9 +244,9 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
 		minTemp := req.FormValue("minTemp")
 		maxTemp := req.FormValue("maxTemp")
-		fmt.Println("values passed", minTemp, maxTemp)
+		//fmt.Println("values passed", minTemp, maxTemp)
 		if minTemp != "" {
-			fmt.Println(minTemp)
+			//fmt.Println(minTemp)
 			val, err := strconv.ParseFloat(minTemp, 64)
 			if err != nil {
 				log.Println(err)
@@ -238,7 +254,7 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 			userSettings.MinTemp = val
 		}
 		if maxTemp != "" {
-			fmt.Println(maxTemp)
+			//fmt.Println(maxTemp)
 			val, err := strconv.ParseFloat(maxTemp, 64)
 			if err != nil {
 				log.Println(err)
@@ -321,24 +337,22 @@ func getUsers() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(email, password)
 	}
 }
 
-func getUser(email string) bool {
+func getUser(email string) (user, error) {
 	u := user{}
-	var found bool = false
-	err := database.QueryRow("SELECT * FROM usuario WHERE email=?", email).Scan(&u)
+	var pass, em string
+	err := database.QueryRow(`SELECT email,password FROM usuario WHERE email=$1`, email).Scan(&em, &pass)
 	switch {
 	case err == sql.ErrNoRows:
-		found = false
 	case err != nil:
 		log.Fatal(err)
 	default:
-		fmt.Printf("Email is %s\n", u.Email)
-		found = true
+		u.Email = em
+		u.Password = pass
 	}
-	return found
+	return u, err
 }
 
 func insertUser(email string, password string) bool {
