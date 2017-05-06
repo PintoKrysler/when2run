@@ -1,6 +1,5 @@
 {{define "login"}}
-<h4>LOG IN</h4>
-<form action="/login" method="post">
+<form action="/login" method="post" id="loginform">
   <div class="form-group">
     <label for="email">Email</label>
     <input  type="email" class="form-control" id="email" name="email" placeholder="yourname@yourdomain">
@@ -13,4 +12,7 @@
   </div>
   <button type="submit" class="btn btn-default">Sign in</button>
 </form>
+<div class="text-center">
+<button type="button" class="btn btn-info " id="create_account_btn" >Create an Account NOW!</button>
+</div>
 {{end}}

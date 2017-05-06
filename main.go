@@ -151,7 +151,7 @@ func accountHandler(w http.ResponseWriter, req *http.Request) {
 
 func createUserHandler(w http.ResponseWriter, req *http.Request) {
 	templateData := tplData{
-		Title:     "Account",
+		Title:     "Create Account",
 		TabActive: "account",
 	}
 
@@ -159,14 +159,38 @@ func createUserHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
 		email := req.FormValue("email")
 		password := req.FormValue("password")
-		inserted := insertUser(email, password)
-		if inserted {
-			myapp.UserLogged = true
-			myapp.User = user{email, password}
 
+		// Check if there is a user with that email
+		_, err := getUser(email)
+		if err != nil {
+			if err == sql.ErrNoRows {
+
+				// User does not exists
+				inserted := insertUser(email, password)
+				if inserted {
+					myapp.UserLogged = true
+					myapp.User = user{email, password}
+
+				}
+				myapp.Data = templateData
+				err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
+				if err != nil {
+					log.Println(err)
+				}
+			}
+		} else {
+			// User already exists
+			myapp.MsgError = "User account already exists"
+			err := tpl.ExecuteTemplate(w, "createaccount.gohtml", myapp)
+			if err != nil {
+				log.Println(err)
+			}
 		}
+
+	} else {
+		// Is not a POST request! we only want to show the form to create a new account
 		myapp.Data = templateData
-		err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
+		err := tpl.ExecuteTemplate(w, "createaccount.gohtml", myapp)
 		if err != nil {
 			log.Println(err)
 		}
@@ -174,6 +198,7 @@ func createUserHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func logoutHandler(w http.ResponseWriter, req *http.Request) {
+
 	if req.Method == http.MethodPost {
 		if myapp.UserLogged {
 			myapp.UserLogged = false
@@ -192,6 +217,10 @@ func logoutHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func loginHandler(w http.ResponseWriter, req *http.Request) {
+	templateData := tplData{
+		Title:     "Login",
+		TabActive: "account",
+	}
 	if req.Method == http.MethodPost {
 		email := req.FormValue("email")
 		password := req.FormValue("password")
@@ -200,6 +229,7 @@ func loginHandler(w http.ResponseWriter, req *http.Request) {
 			log.Println("Authentication error")
 		}
 	}
+	myapp.Data = templateData
 	err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
 	if err != nil {
 		log.Println(err)
@@ -337,6 +367,7 @@ func getUsers() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		fmt.Println(email, password)
 	}
 }
 
@@ -362,6 +393,7 @@ func insertUser(email string, password string) bool {
 		log.Fatal(err)
 		return false
 	}
+
 	fmt.Println("userid created", userid)
 	return true
 }
