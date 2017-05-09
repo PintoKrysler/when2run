@@ -20,9 +20,9 @@ var tpl *template.Template
 const (
 	minDefaultTemperature float64 = 0
 	maxDefaultTemperature float64 = 110
-	DB_USER                       = "postgres"
-	DB_PASSWORD                   = "postgres"
-	DB_NAME                       = "when2run"
+	dbUser                        = "postgres"
+	dbPassword                    = "postgres"
+	dbName                        = "when2run"
 )
 
 // Settings
@@ -47,10 +47,10 @@ type responseMain struct {
 
 //ResponseElem ...
 type responseElem struct {
-	Ts           int          `json:"dt"`
-	TempValues   responseMain `json:"main"`
-	Ts_formatted time.Time
-	GoRun        bool
+	Ts          int          `json:"dt"`
+	TempValues  responseMain `json:"main"`
+	TsFormatted time.Time
+	GoRun       bool
 }
 
 // Response ...
@@ -351,12 +351,12 @@ func makeWeatherAPIcall() responsetype {
 func parseData(data responsetype) responsetype {
 	for i := 0; i < len(data.List); i++ {
 		elem := data.List[i]
-		ts_sting := strconv.Itoa(elem.Ts)
-		ts_formatted, err := strconv.ParseInt(ts_sting, 10, 64)
+		tsString := strconv.Itoa(elem.Ts)
+		tsFormatted, err := strconv.ParseInt(tsString, 10, 64)
 		if err != nil {
 			panic(err)
 		}
-		data.List[i].Ts_formatted = time.Unix(ts_formatted, 0)
+		data.List[i].TsFormatted = time.Unix(tsFormatted, 0)
 		if myapp.User.Settings.MinTemp <= elem.TempValues.TempMin && myapp.User.Settings.MaxTemp >= elem.TempValues.TempMax {
 			data.List[i].GoRun = true
 		}
@@ -366,11 +366,11 @@ func parseData(data responsetype) responsetype {
 }
 
 func connectDB() {
-	database_conn, err := sql.Open("postgres", "user="+DB_USER+" password="+DB_PASSWORD+" dbname="+DB_NAME+" sslmode=disable")
+	databaseConn, err := sql.Open("postgres", "user="+dbUser+" password="+dbPassword+" dbname="+dbName+" sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}
-	database = database_conn
+	database = databaseConn
 }
 func getUsers() {
 	rows, err := database.Query(`SELECT email,password FROM usuario`)
@@ -419,7 +419,8 @@ func updateUser(userID string, userVal user) bool {
 
 func insertUser(email string, password string) bool {
 	var userid string
-	err := database.QueryRow("INSERT INTO USUARIO (email,password,mintemp,maxtemp) VALUES('" + email + "','" + password + "','" + minDefaultTemperature + "','" + maxDefaultTemperature + "') RETURNING email").Scan(&userid)
+	//" + minDefaultTemperature + "','" + maxDefaultTemperature + "
+	err := database.QueryRow("INSERT INTO USUARIO (email,password) VALUES('" + email + "','" + password + "') RETURNING email").Scan(&userid)
 	if err != nil {
 		log.Fatal(err)
 		return false
