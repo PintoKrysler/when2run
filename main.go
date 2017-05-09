@@ -31,6 +31,13 @@ type settings struct {
 	MaxTemp float64
 }
 
+func (r *settings) newSettings() settings {
+	return settings{
+		MinTemp: minDefaultTemperature,
+		MaxTemp: maxDefaultTemperature,
+	}
+}
+
 //ResponseMain ...
 type responseMain struct {
 	Temp    float64 `json:"temp"`
@@ -62,6 +69,7 @@ type tplData struct {
 type user struct {
 	Email    string
 	Password string
+	Settings settings
 }
 
 type app struct {
@@ -82,10 +90,10 @@ func init() {
 	getUsers()
 }
 
-var userSettings = settings{
-	MinTemp: minDefaultTemperature,
-	MaxTemp: maxDefaultTemperature,
-}
+// var userSettings = settings{
+// 	MinTemp: minDefaultTemperature,
+// 	MaxTemp: maxDefaultTemperature,
+// }
 
 var database *sql.DB
 
@@ -169,7 +177,9 @@ func createUserHandler(w http.ResponseWriter, req *http.Request) {
 				inserted := insertUser(email, password)
 				if inserted {
 					myapp.UserLogged = true
-					myapp.User = user{email, password}
+					userSettings := settings{}
+					userSettings = userSettings.newSettings()
+					myapp.User = user{Email: email, Password: password, Settings: userSettings}
 
 				}
 				myapp.Data = templateData
@@ -274,6 +284,7 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
 		minTemp := req.FormValue("minTemp")
 		maxTemp := req.FormValue("maxTemp")
+
 		//fmt.Println("values passed", minTemp, maxTemp)
 		if minTemp != "" {
 			//fmt.Println(minTemp)
@@ -281,7 +292,9 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 			if err != nil {
 				log.Println(err)
 			}
-			userSettings.MinTemp = val
+			if myapp.UserLogged {
+				myapp.User.Settings.MinTemp = val
+			}
 		}
 		if maxTemp != "" {
 			//fmt.Println(maxTemp)
@@ -289,7 +302,15 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 			if err != nil {
 				log.Println(err)
 			}
-			userSettings.MaxTemp = val
+			if myapp.UserLogged {
+				myapp.User.Settings.MaxTemp = val
+			}
+		}
+
+		if myapp.UserLogged && (minTemp != "" || maxTemp != "") {
+			// Update database if user is logged in and temperatures passed on the form
+			// are different than DB values
+			fmt.Println("Update user information ", minTemp, maxTemp)
 		}
 
 		var data = makeWeatherAPIcall()
@@ -336,7 +357,7 @@ func parseData(data responsetype) responsetype {
 			panic(err)
 		}
 		data.List[i].Ts_formatted = time.Unix(ts_formatted, 0)
-		if userSettings.MinTemp <= elem.TempValues.TempMin && userSettings.MaxTemp >= elem.TempValues.TempMax {
+		if myapp.User.Settings.MinTemp <= elem.TempValues.TempMin && myapp.User.Settings.MaxTemp >= elem.TempValues.TempMax {
 			data.List[i].GoRun = true
 		}
 
@@ -352,7 +373,7 @@ func connectDB() {
 	database = database_conn
 }
 func getUsers() {
-	rows, err := database.Query(`SELECT * FROM usuario`)
+	rows, err := database.Query(`SELECT email,password FROM usuario`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -374,7 +395,9 @@ func getUsers() {
 func getUser(email string) (user, error) {
 	u := user{}
 	var pass, em string
-	err := database.QueryRow(`SELECT email,password FROM usuario WHERE email=$1`, email).Scan(&em, &pass)
+	var tempMin, tempMax float64
+
+	err := database.QueryRow(`SELECT email,password,mintemp,maxtemp FROM usuario WHERE email=$1`, email).Scan(&em, &pass, &tempMin, &tempMax)
 	switch {
 	case err == sql.ErrNoRows:
 	case err != nil:
@@ -386,9 +409,17 @@ func getUser(email string) (user, error) {
 	return u, err
 }
 
+func updateUser(userID string, userVal user) bool {
+	updated := false
+
+	// Update user information new values
+
+	return updated
+}
+
 func insertUser(email string, password string) bool {
 	var userid string
-	err := database.QueryRow("INSERT INTO USUARIO (email,password) VALUES('" + email + "','" + password + "') RETURNING email").Scan(&userid)
+	err := database.QueryRow("INSERT INTO USUARIO (email,password,mintemp,maxtemp) VALUES('" + email + "','" + password + "','" + minDefaultTemperature + "','" + maxDefaultTemperature + "') RETURNING email").Scan(&userid)
 	if err != nil {
 		log.Fatal(err)
 		return false
