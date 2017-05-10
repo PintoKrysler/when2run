@@ -53,7 +53,7 @@ type responseElem struct {
 	GoRun       bool
 }
 
-// Response ...
+// responsetype ...
 type responsetype struct {
 	List []responseElem `json:"list"`
 }
@@ -61,7 +61,6 @@ type responsetype struct {
 // tplData
 type tplData struct {
 	Title     string
-	FirstName string
 	TabActive string
 	Data      responsetype
 }
@@ -76,7 +75,7 @@ type app struct {
 	User        user
 	UserLogged  bool
 	CurrentView string
-	Data        tplData
+	Data        interface{}
 	MsgError    string
 }
 
@@ -84,18 +83,13 @@ var myapp = app{
 	UserLogged: false,
 }
 
+var database *sql.DB
+
 func init() {
 	tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
 	connectDB()
 	getUsers()
 }
-
-// var userSettings = settings{
-// 	MinTemp: minDefaultTemperature,
-// 	MaxTemp: maxDefaultTemperature,
-// }
-
-var database *sql.DB
 
 func main() {
 
@@ -106,12 +100,9 @@ func main() {
 	http.Handle("/favicon.ico", http.NotFoundHandler())
 	http.HandleFunc("/logout", logoutHandler)
 	http.HandleFunc("/login", loginHandler)
-
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
-
 	http.HandleFunc("/", indexHandler)
-
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -174,8 +165,7 @@ func createUserHandler(w http.ResponseWriter, req *http.Request) {
 			if err == sql.ErrNoRows {
 
 				// User does not exists
-				inserted := insertUser(email, password)
-				if inserted {
+				if inserted := insertUser(email, password); inserted {
 					myapp.UserLogged = true
 					userSettings := settings{}
 					userSettings = userSettings.newSettings()
@@ -285,32 +275,37 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 		minTemp := req.FormValue("minTemp")
 		maxTemp := req.FormValue("maxTemp")
 
-		//fmt.Println("values passed", minTemp, maxTemp)
-		if minTemp != "" {
-			//fmt.Println(minTemp)
-			val, err := strconv.ParseFloat(minTemp, 64)
-			if err != nil {
-				log.Println(err)
-			}
-			if myapp.UserLogged {
-				myapp.User.Settings.MinTemp = val
-			}
-		}
-		if maxTemp != "" {
-			//fmt.Println(maxTemp)
-			val, err := strconv.ParseFloat(maxTemp, 64)
-			if err != nil {
-				log.Println(err)
-			}
-			if myapp.UserLogged {
-				myapp.User.Settings.MaxTemp = val
-			}
-		}
-
 		if myapp.UserLogged && (minTemp != "" || maxTemp != "") {
 			// Update database if user is logged in and temperatures passed on the form
 			// are different than DB values
 			fmt.Println("Update user information ", minTemp, maxTemp)
+
+			changedValues := make(map[string]interface{})
+
+			if maxTemp != "" {
+				maxTempVal, err := strconv.ParseFloat(maxTemp, 64)
+				if err != nil {
+					log.Println(err)
+				}
+				// Check if maxTemp changed
+				//fmt.Println("maxChanges", maxTempVal, myapp.User.Settings.MaxTemp)
+				if maxTempVal != myapp.User.Settings.MaxTemp {
+					changedValues["MaxTemp"] = maxTempVal
+				}
+			}
+
+			if minTemp != "" {
+				minTempVal, err := strconv.ParseFloat(minTemp, 64)
+				if err != nil {
+					log.Println(err)
+				}
+				// Check if minTemp changed
+				//fmt.Println("minChanges", minTempVal, myapp.User.Settings.MinTemp)
+				if minTempVal != myapp.User.Settings.MinTemp {
+					changedValues["MinTemp"] = minTempVal
+				}
+			}
+			updateUser(myapp.User.Email, changedValues)
 		}
 
 		var data = makeWeatherAPIcall()
@@ -395,9 +390,13 @@ func getUsers() {
 func getUser(email string) (user, error) {
 	u := user{}
 	var pass, em string
-	var tempMin, tempMax float64
+	var tempMin, tempMax interface{}
 
-	err := database.QueryRow(`SELECT email,password,mintemp,maxtemp FROM usuario WHERE email=$1`, email).Scan(&em, &pass, &tempMin, &tempMax)
+	sqlStatement := `SELECT email,password,mintemp,maxtemp FROM usuario WHERE email=$1;`
+	// Replace 3 with an ID from your database or another random
+	// value to test the no rows use case.
+
+	err := database.QueryRow(sqlStatement, email).Scan(&em, &pass, &tempMin, &tempMax)
 	switch {
 	case err == sql.ErrNoRows:
 	case err != nil:
@@ -409,10 +408,33 @@ func getUser(email string) (user, error) {
 	return u, err
 }
 
-func updateUser(userID string, userVal user) bool {
+func updateUser(userID string, values map[string]interface{}) bool {
 	updated := false
-
+	setFields := ""
+	var setValues []interface{}
+	cnt := 0
+	paramIndex := 2
+	// First parameter is user id
+	setValues = append(setValues, userID)
+	for key, val := range values {
+		if cnt > 0 {
+			setFields += " , "
+		}
+		setFields += key + "= $" + strconv.Itoa(paramIndex)
+		setValues = append(setValues, val)
+		cnt++
+		paramIndex++
+	}
+	//fmt.Println("setvalues", setFields)
 	// Update user information new values
+	sqlStatement := `
+	UPDATE USUARIO
+	SET ` + setFields + `
+	WHERE email = $1;`
+	_, err := database.Exec(sqlStatement, setValues...)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return updated
 }
