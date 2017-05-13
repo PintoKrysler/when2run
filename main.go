@@ -163,7 +163,6 @@ func createUserHandler(w http.ResponseWriter, req *http.Request) {
 		_, err := getUser(email)
 		if err != nil {
 			if err == sql.ErrNoRows {
-
 				// User does not exists
 				if inserted := insertUser(email, password); inserted {
 					myapp.UserLogged = true
@@ -224,9 +223,10 @@ func loginHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
 		email := req.FormValue("email")
 		password := req.FormValue("password")
-		loggedIn := login(email, password)
+		loggedIn, errMsg := login(email, password)
 		if !loggedIn {
-			log.Println("Authentication error")
+			log.Println(errMsg)
+			myapp.MsgError = errMsg
 		}
 	}
 	myapp.Data = templateData
@@ -236,15 +236,17 @@ func loginHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func login(email string, password string) bool {
+func login(email string, password string) (bool, string) {
 	var success = false
+	var msg = ""
+	myapp.MsgError = ""
 	if !myapp.UserLogged {
 		// Find a user with email and password match
 		foundUser, err := getUser(email)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				// User does not exists
-				myapp.MsgError = "User account does not exists"
+				msg = "User account does not exists"
 			} else {
 				log.Println(err)
 			}
@@ -252,16 +254,18 @@ func login(email string, password string) bool {
 			if strings.Trim(foundUser.Password, " ") == strings.Trim(password, " ") {
 				// Authentication passed
 				myapp.UserLogged = true
-				myapp.User = user{Email: foundUser.Email, Password: foundUser.Password}
+				fmt.Println(foundUser)
+				myapp.User = foundUser
 				success = true
 			} else {
 				// Authentication error
-				myapp.MsgError = "Authentication Error"
+				msg = "Authentication Error"
+				//myapp.MsgError = "Authentication Error"
 			}
 		}
 
 	}
-	return success
+	return success, msg
 }
 
 func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
@@ -291,6 +295,7 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 				//fmt.Println("maxChanges", maxTempVal, myapp.User.Settings.MaxTemp)
 				if maxTempVal != myapp.User.Settings.MaxTemp {
 					changedValues["MaxTemp"] = maxTempVal
+					myapp.User.Settings.MaxTemp = maxTempVal
 				}
 			}
 
@@ -303,9 +308,13 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 				//fmt.Println("minChanges", minTempVal, myapp.User.Settings.MinTemp)
 				if minTempVal != myapp.User.Settings.MinTemp {
 					changedValues["MinTemp"] = minTempVal
+					myapp.User.Settings.MinTemp = minTempVal
 				}
 			}
-			updateUser(myapp.User.Email, changedValues)
+			updateSuccess := updateUser(myapp.User.Email, changedValues)
+			if updateSuccess {
+
+			}
 		}
 
 		var data = makeWeatherAPIcall()
@@ -352,6 +361,7 @@ func parseData(data responsetype) responsetype {
 			panic(err)
 		}
 		data.List[i].TsFormatted = time.Unix(tsFormatted, 0)
+
 		if myapp.User.Settings.MinTemp <= elem.TempValues.TempMin && myapp.User.Settings.MaxTemp >= elem.TempValues.TempMax {
 			data.List[i].GoRun = true
 		}
@@ -390,13 +400,13 @@ func getUsers() {
 func getUser(email string) (user, error) {
 	u := user{}
 	var pass, em string
-	var tempMin, tempMax interface{}
+	var minTemp, maxTemp float64
 
 	sqlStatement := `SELECT email,password,mintemp,maxtemp FROM usuario WHERE email=$1;`
 	// Replace 3 with an ID from your database or another random
 	// value to test the no rows use case.
 
-	err := database.QueryRow(sqlStatement, email).Scan(&em, &pass, &tempMin, &tempMax)
+	err := database.QueryRow(sqlStatement, email).Scan(&em, &pass, &minTemp, &maxTemp)
 	switch {
 	case err == sql.ErrNoRows:
 	case err != nil:
@@ -404,6 +414,8 @@ func getUser(email string) (user, error) {
 	default:
 		u.Email = em
 		u.Password = pass
+		u.Settings.MinTemp = minTemp
+		u.Settings.MaxTemp = maxTemp
 	}
 	return u, err
 }
@@ -435,6 +447,7 @@ func updateUser(userID string, values map[string]interface{}) bool {
 	if err != nil {
 		log.Fatal(err)
 	}
+	updated = true
 
 	return updated
 }
