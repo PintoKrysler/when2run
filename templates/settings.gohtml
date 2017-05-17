@@ -1,7 +1,7 @@
-{{template "header" .}}
-<h1>{{.Title}}</h1>
+{{template "header" .Data}}
+<h1>{{.Data.Title}}</h1>
 
-{{template "nav" .}}
+{{template "nav" .Data}}
 <form action="/setSettings" method="post">
   <div class="form-group">
     <label for="minTemp">Location</label>
@@ -10,14 +10,14 @@
   <div class="form-group">
     <label for="minTemp">Min Temperature</label>
     <div class="input-group">
-    <input type="text" class="form-control" id="minTemp" name="minTemp" placeholder="80">
+    <input type="text" class="form-control" id="minTemp" name="minTemp" placeholder="80" value="{{if .UserLogged}}{{.User.Settings.MinTemp}}{{end}}">
     <div class="input-group-addon">F</div>
   </div>
   </div>
   <div class="form-group">
     <label for="maxTemp">Max Temperature</label>
     <div class="input-group">
-      <input type="text" class="form-control" id="maxTemp" name="maxTemp" placeholder="80">
+      <input type="text" class="form-control" id="maxTemp" name="maxTemp" placeholder="80" value="{{if .UserLogged}}{{.User.Settings.MaxTemp}}{{end}}">
       <div class="input-group-addon">F</div>
     </div>
   </div>

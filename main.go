@@ -128,7 +128,9 @@ func settingsHandler(w http.ResponseWriter, req *http.Request) {
 		TabActive: "settings",
 	}
 	myapp.CurrentView = "settings"
-	err := tpl.ExecuteTemplate(w, "settings.gohtml", templateData)
+	myapp.Data = templateData
+	fmt.Println(myapp)
+	err := tpl.ExecuteTemplate(w, "settings.gohtml", myapp)
 	if err != nil {
 		log.Println(err)
 	}
@@ -282,7 +284,6 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 		if myapp.UserLogged && (minTemp != "" || maxTemp != "") {
 			// Update database if user is logged in and temperatures passed on the form
 			// are different than DB values
-			fmt.Println("Update user information ", minTemp, maxTemp)
 
 			changedValues := make(map[string]interface{})
 
@@ -311,10 +312,14 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 					myapp.User.Settings.MinTemp = minTempVal
 				}
 			}
-			updateSuccess := updateUser(myapp.User.Email, changedValues)
-			if updateSuccess {
 
+			if len(changedValues) > 0 {
+				fmt.Println("Update user information ", minTemp, maxTemp)
+				updateSuccess := updateUser(myapp.User.Email, changedValues)
+				if updateSuccess {
+				}
 			}
+
 		}
 
 		var data = makeWeatherAPIcall()
