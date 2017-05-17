@@ -1,6 +1,6 @@
-{{template "header" .Data}}
+{{template "header" .}}
 <h1>{{.Data.Title}}</h1>
-{{template "nav" .Data}}
+{{template "nav" .}}
 {{if .MsgError}}
 <div class="alert alert-danger x_alert_msg" role="alert">
   Error ocurred : {{.MsgError}}

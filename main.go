@@ -112,8 +112,9 @@ func indexHandler(w http.ResponseWriter, req *http.Request) {
 		TabActive: "index",
 	}
 	myapp.CurrentView = "index"
+	myapp.Data = templateData
 
-	err := tpl.ExecuteTemplate(w, "index.gohtml", templateData)
+	err := tpl.ExecuteTemplate(w, "index.gohtml", myapp)
 
 	if err != nil {
 		log.Println(err)
@@ -199,20 +200,17 @@ func createUserHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func logoutHandler(w http.ResponseWriter, req *http.Request) {
-
-	if req.Method == http.MethodPost {
-		if myapp.UserLogged {
-			myapp.UserLogged = false
-			myapp.User = user{}
-			templateData := tplData{
-				Title:     "Account",
-				TabActive: "account",
-			}
-			myapp.Data = templateData
-			err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
-			if err != nil {
-				log.Println(err)
-			}
+	if myapp.UserLogged {
+		myapp.UserLogged = false
+		myapp.User = user{}
+		templateData := tplData{
+			Title:     "Account",
+			TabActive: "account",
+		}
+		myapp.Data = templateData
+		err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
+		if err != nil {
+			log.Println(err)
 		}
 	}
 }
@@ -324,8 +322,8 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 
 		var data = makeWeatherAPIcall()
 		templateData.Data = data
-
-		err := tpl.ExecuteTemplate(w, "times.gohtml", templateData)
+		myapp.Data = templateData
+		err := tpl.ExecuteTemplate(w, "times.gohtml", myapp)
 		if err != nil {
 			log.Println(err)
 		}

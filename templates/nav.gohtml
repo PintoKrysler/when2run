@@ -1,8 +1,11 @@
 {{define "nav"}}
 <ul class="nav nav-pills">
-  <li role="presentation" {{if eq .TabActive "index"}} class="active" {{end}}><a href="/">Home</a></li>
-  <!-- <li role="presentation" {{if eq .TabActive "account"}} class="active" {{end}}><a href="/account">Account</a></li> -->
-  <li role="presentation" {{if eq .TabActive "settings"}} class="active" {{end}}><a href="/settings">Settings</a></li>
-  <li role="presentation" style="float:right" ><a href="/login">Login</a></li>
+  <li role="presentation" {{if eq .Data.TabActive "index"}} class="active" {{end}}><a href="/">Home</a></li>
+  <li role="presentation" {{if eq .Data.TabActive "settings"}} class="active" {{end}}><a href="/settings">Settings</a></li>
+  {{if .UserLogged}}
+    <li role="presentation" style="float:right" ><a href="/logout">Logout</a></li>
+  {{else}}
+    <li role="presentation" style="float:right" ><a href="/login">Login</a></li>
+  {{end}}
 </ul>
 {{end}}
