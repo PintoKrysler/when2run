@@ -9,7 +9,7 @@
   }
   console.log($('#create_account_btn'));
   $('#create_account_btn').click(function(){
-    window.location = "/createUser";
+    window.location = "/user/create";
     // $.ajax({
     //   url: "/createUser",
     //   success: function(r){

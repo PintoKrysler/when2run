@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
 )
 
@@ -31,7 +32,7 @@ type settings struct {
 	MaxTemp float64
 }
 
-func (r *settings) newSettings() settings {
+func (r *settings) new() settings {
 	return settings{
 		MinTemp: minDefaultTemperature,
 		MaxTemp: maxDefaultTemperature,
@@ -93,20 +94,21 @@ func init() {
 
 func main() {
 
-	http.HandleFunc("/account", accountHandler)
-	http.HandleFunc("/settings", settingsHandler)
-	http.HandleFunc("/createUser", createUserHandler)
-	http.HandleFunc("/setSettings", setSettingsHandler)
-	http.Handle("/favicon.ico", http.NotFoundHandler())
-	http.HandleFunc("/logout", logoutHandler)
-	http.HandleFunc("/login", loginHandler)
-	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
-	http.HandleFunc("/", indexHandler)
-	http.ListenAndServe(":8080", nil)
+	router := httprouter.New()
+
+	router.GET("/", indexHandler)
+	router.ServeFiles("/static/*filepath", http.Dir("static"))
+	// user/update	-> user controller
+	// user/delete -> user controller
+	router.GET("/user/:action", userHandler)
+	router.POST("/user/:action", userHandler)
+	router.GET("/settings", settingsHandler)
+	router.POST("/settings", settingsHandler)
+	// http.Handle("/favicon.ico", http.NotFoundHandler())
+	http.ListenAndServe(":8080", router)
 }
 
-func indexHandler(w http.ResponseWriter, req *http.Request) {
+func indexHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 	templateData := tplData{
 		Title:     "Index",
 		TabActive: "index",
@@ -123,35 +125,44 @@ func indexHandler(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func settingsHandler(w http.ResponseWriter, req *http.Request) {
-	templateData := tplData{
-		Title:     "Settings",
-		TabActive: "settings",
-	}
-	myapp.CurrentView = "settings"
-	myapp.Data = templateData
-	fmt.Println(myapp)
-	err := tpl.ExecuteTemplate(w, "settings.gohtml", myapp)
-	if err != nil {
-		log.Println(err)
+func settingsHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
+	if req.Method == http.MethodPost {
+		setSettingsHandler(w, req)
+	} else {
+		templateData := tplData{
+			Title:     "Settings",
+			TabActive: "settings",
+		}
+		myapp.CurrentView = "settings"
+		myapp.Data = templateData
+		fmt.Println(myapp)
+		err := tpl.ExecuteTemplate(w, "settings.gohtml", myapp)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }
 
-func accountHandler(w http.ResponseWriter, req *http.Request) {
-	templateData := tplData{
-		Title:     "Account",
-		TabActive: "account",
-	}
-	myapp.CurrentView = "account"
-	myapp.Data = templateData
-
-	err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
-	if err != nil {
-		log.Println(err)
+func userHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	// Get action
+	action := params.ByName("action")
+	fmt.Println(action)
+	switch action {
+	case "login":
+		loginHandler(w, r)
+		break
+	case "create":
+		createUserHandler(w, r)
+		break
+	case "logout":
+		logoutHandler(w, r)
+		break
 	}
 }
 
 func createUserHandler(w http.ResponseWriter, req *http.Request) {
+	fmt.Println("createuserhandler")
+	fmt.Println(req.URL.Path)
 	templateData := tplData{
 		Title:     "Create Account",
 		TabActive: "account",
@@ -170,7 +181,7 @@ func createUserHandler(w http.ResponseWriter, req *http.Request) {
 				if inserted := insertUser(email, password); inserted {
 					myapp.UserLogged = true
 					userSettings := settings{}
-					userSettings = userSettings.newSettings()
+					userSettings = userSettings.new()
 					myapp.User = user{Email: email, Password: password, Settings: userSettings}
 
 				}
@@ -223,7 +234,7 @@ func loginHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
 		email := req.FormValue("email")
 		password := req.FormValue("password")
-		loggedIn, errMsg := login(email, password)
+		loggedIn, errMsg := loginUser(email, password)
 		if !loggedIn {
 			log.Println(errMsg)
 			myapp.MsgError = errMsg
@@ -236,7 +247,8 @@ func loginHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func login(email string, password string) (bool, string) {
+//login
+func loginUser(email string, password string) (bool, string) {
 	var success = false
 	var msg = ""
 	myapp.MsgError = ""
@@ -273,64 +285,62 @@ func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 		Title:     "Your Running Times",
 		TabActive: "times",
 	}
+	var maxTempVal float64
+	var minTempVal float64
+
+	s := settings{MinTemp: minDefaultTemperature, MaxTemp: maxDefaultTemperature}
 	myapp.CurrentView = "settings"
-	// post request, http.MethodPost is a constant
-	if req.Method == http.MethodPost {
-		minTemp := req.FormValue("minTemp")
-		maxTemp := req.FormValue("maxTemp")
+	minTemp := req.FormValue("minTemp")
+	maxTemp := req.FormValue("maxTemp")
 
-		if myapp.UserLogged && (minTemp != "" || maxTemp != "") {
-			// Update database if user is logged in and temperatures passed on the form
-			// are different than DB values
+	// if maxTemp was passed on the form
+	if maxTemp != "" {
+		maxTempVal, _ = strconv.ParseFloat(maxTemp, 64)
+		s.MaxTemp = maxTempVal
+	}
 
-			changedValues := make(map[string]interface{})
+	if minTemp != "" {
+		minTempVal, _ := strconv.ParseFloat(minTemp, 64)
+		s.MinTemp = minTempVal
+	}
 
-			if maxTemp != "" {
-				maxTempVal, err := strconv.ParseFloat(maxTemp, 64)
-				if err != nil {
-					log.Println(err)
-				}
-				// Check if maxTemp changed
-				//fmt.Println("maxChanges", maxTempVal, myapp.User.Settings.MaxTemp)
-				if maxTempVal != myapp.User.Settings.MaxTemp {
-					changedValues["MaxTemp"] = maxTempVal
-					myapp.User.Settings.MaxTemp = maxTempVal
-				}
-			}
-
-			if minTemp != "" {
-				minTempVal, err := strconv.ParseFloat(minTemp, 64)
-				if err != nil {
-					log.Println(err)
-				}
-				// Check if minTemp changed
-				//fmt.Println("minChanges", minTempVal, myapp.User.Settings.MinTemp)
-				if minTempVal != myapp.User.Settings.MinTemp {
-					changedValues["MinTemp"] = minTempVal
-					myapp.User.Settings.MinTemp = minTempVal
-				}
-			}
-
-			if len(changedValues) > 0 {
-				fmt.Println("Update user information ", minTemp, maxTemp)
-				updateSuccess := updateUser(myapp.User.Email, changedValues)
-				if updateSuccess {
-				}
-			}
-
+	if myapp.UserLogged && (minTemp != "" || maxTemp != "") {
+		// Update database if user is logged in and temperatures passed on the form
+		// are different than DB values
+		changedValues := make(map[string]interface{})
+		// Check if maxTemp changed
+		if s.MaxTemp != myapp.User.Settings.MaxTemp {
+			changedValues["MaxTemp"] = maxTempVal
+			myapp.User.Settings.MaxTemp = maxTempVal
 		}
 
-		var data = makeWeatherAPIcall()
-		templateData.Data = data
-		myapp.Data = templateData
-		err := tpl.ExecuteTemplate(w, "times.gohtml", myapp)
-		if err != nil {
-			log.Println(err)
+		// Check if minTemp changed
+		//fmt.Println("minChanges", minTempVal, myapp.User.Settings.MinTemp)
+		if s.MinTemp != myapp.User.Settings.MinTemp {
+			changedValues["MinTemp"] = minTempVal
+			myapp.User.Settings.MinTemp = minTempVal
 		}
+
+		if len(changedValues) > 0 {
+			fmt.Println("Update user information ", minTemp, maxTemp)
+			updateSuccess := updateUser(myapp.User.Email, changedValues)
+			if updateSuccess {
+			}
+		}
+	}
+
+	var data = makeWeatherAPIcall(s)
+	templateData.Data = data
+	myapp.Data = templateData
+	fmt.Println(myapp)
+	err := tpl.ExecuteTemplate(w, "times.gohtml", myapp)
+	if err != nil {
+		log.Println(err)
 	}
 }
 
-func makeWeatherAPIcall() responsetype {
+// makeWeatherAPIcall
+func makeWeatherAPIcall(s settings) responsetype {
 	apiKey := "4793867f02934a10b3033be4d68f385c"
 	baseURL := "http://api.openweathermap.org/data/2.5/forecast?q=lakewood,co&units=imperial"
 	query := baseURL + "&appid=" + apiKey + "&id=5427946"
@@ -347,15 +357,16 @@ func makeWeatherAPIcall() responsetype {
 
 	var r = responsetype{}
 	json.Unmarshal(response, &r)
-	r = parseData(r)
+	fmt.Println("compare values with settings", s)
+	r = parseData(r, s)
 
 	return r
 }
 
+// parseData
 // This function parses the Weather API data
 // Transforms ts into readable data for the view
-//
-func parseData(data responsetype) responsetype {
+func parseData(data responsetype, s settings) responsetype {
 	for i := 0; i < len(data.List); i++ {
 		elem := data.List[i]
 		tsString := strconv.Itoa(elem.Ts)
@@ -365,7 +376,7 @@ func parseData(data responsetype) responsetype {
 		}
 		data.List[i].TsFormatted = time.Unix(tsFormatted, 0)
 
-		if myapp.User.Settings.MinTemp <= elem.TempValues.TempMin && myapp.User.Settings.MaxTemp >= elem.TempValues.TempMax {
+		if s.MinTemp <= elem.TempValues.TempMin && s.MaxTemp >= elem.TempValues.TempMax {
 			data.List[i].GoRun = true
 		}
 
@@ -373,6 +384,7 @@ func parseData(data responsetype) responsetype {
 	return data
 }
 
+// connectDB
 func connectDB() {
 	databaseConn, err := sql.Open("postgres", "user="+dbUser+" password="+dbPassword+" dbname="+dbName+" sslmode=disable")
 	if err != nil {
@@ -380,6 +392,8 @@ func connectDB() {
 	}
 	database = databaseConn
 }
+
+// getUsers
 func getUsers() {
 	rows, err := database.Query(`SELECT email,password FROM usuario`)
 	if err != nil {
@@ -400,6 +414,7 @@ func getUsers() {
 	}
 }
 
+// getUser
 func getUser(email string) (user, error) {
 	u := user{}
 	var pass, em string
@@ -423,6 +438,7 @@ func getUser(email string) (user, error) {
 	return u, err
 }
 
+// updateUser
 func updateUser(userID string, values map[string]interface{}) bool {
 	updated := false
 	setFields := ""
@@ -455,6 +471,7 @@ func updateUser(userID string, values map[string]interface{}) bool {
 	return updated
 }
 
+//insertUser
 func insertUser(email string, password string) bool {
 	var userid string
 	//" + minDefaultTemperature + "','" + maxDefaultTemperature + "
