@@ -35,7 +35,7 @@ func (uc UserController) Dispatch(w http.ResponseWriter, r *http.Request, params
 		uc.create(w, r)
 		break
 	case "logout":
-		uc.logout(w, r)
+		uc.logoutHandler(w, r)
 		break
 	}
 
@@ -78,14 +78,14 @@ func (uc UserController) loginHandler(w http.ResponseWriter, req *http.Request) 
 
 		// Check if user is authenticated using session
 		if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
-			fmt.Println("not session auth")
 			email := req.FormValue("email")
 			password := req.FormValue("password")
 			loggedIn, loggedUser, errMsg := login(email, password)
 			if loggedIn {
 				session.Values["authenticated"] = true
 				session.Values["user"] = loggedUser
-
+				myapp.User = loggedUser
+				myapp.UserLogged = true
 			} else {
 				log.Println(errMsg)
 				session.Values["authenticated"] = false
@@ -95,11 +95,37 @@ func (uc UserController) loginHandler(w http.ResponseWriter, req *http.Request) 
 			session.Save(req, w)
 		}
 	}
+	fmt.Println("Account")
 
 	myapp.Data = templateData
+	fmt.Println(myapp)
 	err := server.Server.Tpl.ExecuteTemplate(w, "account.gohtml", myapp)
 	if err != nil {
 		log.Println(err)
+	}
+}
+
+func (uc UserController) logoutHandler(w http.ResponseWriter, req *http.Request) {
+	var myapp = models.App{}
+	// Get cookie information
+	session, _ := server.Server.Sess.Get(req, "when2runSess")
+	// Check if user is authenticated using session
+	if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
+		fmt.Println("logout- authenthicated user")
+		noUser := models.User{}
+		myapp.UserLogged = false
+		myapp.User = noUser
+		templateData := models.TplData{
+			Title:     "Account",
+			TabActive: "account",
+		}
+		session.Values["authenticated"] = false
+		session.Values["user"] = noUser
+		myapp.Data = templateData
+		err := server.Server.Tpl.ExecuteTemplate(w, "account.gohtml", myapp)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }
 
@@ -125,7 +151,6 @@ func login(email string, password string) (bool, models.User, string) {
 		} else {
 			// Authentication error
 			msg = "Authentication Error"
-			//myapp.MsgError = "Authentication Error"
 		}
 	}
 	return success, u, msg

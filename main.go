@@ -114,44 +114,6 @@ func main() {
 // 	}
 // }
 
-// func logoutHandler(w http.ResponseWriter, req *http.Request) {
-// 	var myapp = models.App{}
-// 	if myapp.UserLogged {
-// 		myapp.UserLogged = false
-// 		myapp.User = models.User{}
-// 		templateData := models.TplData{
-// 			Title:     "Account",
-// 			TabActive: "account",
-// 		}
-// 		myapp.Data = templateData
-// 		err := server.Server.Tpl.ExecuteTemplate(w, "account.gohtml", myapp)
-// 		if err != nil {
-// 			log.Println(err)
-// 		}
-// 	}
-// }
-
-// func loginHandler(w http.ResponseWriter, req *http.Request) {
-// 	templateData := models.TplData{
-// 		Title:     "Login",
-// 		TabActive: "account",
-// 	}
-// 	if req.Method == http.MethodPost {
-// 		email := req.FormValue("email")
-// 		password := req.FormValue("password")
-// 		loggedIn, errMsg := loginUser(email, password)
-// 		if !loggedIn {
-// 			log.Println(errMsg)
-// 			myapp.MsgError = errMsg
-// 		}
-// 	}
-// 	myapp.Data = templateData
-// 	err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
-// 	if err != nil {
-// 		log.Println(err)
-// 	}
-// }
-
 // func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
 // 	var myapp = models.App{}
 // 	templateData := models.TplData{
