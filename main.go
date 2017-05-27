@@ -1,486 +1,213 @@
 package main
 
 import (
-	"database/sql"
-	"encoding/json"
-	"fmt"
-	"html/template"
-	"io/ioutil"
-	"log"
 	"net/http"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
+	"github.com/pintokrysler/when2run/controllers"
+	"github.com/pintokrysler/when2run/models"
+	"github.com/pintokrysler/when2run/server"
 )
-
-var tpl *template.Template
 
 const (
 	minDefaultTemperature float64 = 0
 	maxDefaultTemperature float64 = 110
-	dbUser                        = "postgres"
-	dbPassword                    = "postgres"
-	dbName                        = "when2run"
 )
 
-// Settings
-type settings struct {
-	MinTemp float64
-	MaxTemp float64
-}
-
-func (r *settings) new() settings {
-	return settings{
-		MinTemp: minDefaultTemperature,
-		MaxTemp: maxDefaultTemperature,
-	}
-}
-
-//ResponseMain ...
-type responseMain struct {
-	Temp    float64 `json:"temp"`
-	TempMin float64 `json:"temp_min"`
-	TempMax float64 `json:"temp_max"`
-}
-
-//ResponseElem ...
-type responseElem struct {
-	Ts          int          `json:"dt"`
-	TempValues  responseMain `json:"main"`
-	TsFormatted time.Time
-	GoRun       bool
-}
-
-// responsetype ...
-type responsetype struct {
-	List []responseElem `json:"list"`
-}
-
-// tplData
-type tplData struct {
-	Title     string
-	TabActive string
-	Data      responsetype
-}
-
-type user struct {
-	Email    string
-	Password string
-	Settings settings
-}
-
-type app struct {
-	User        user
-	UserLogged  bool
-	CurrentView string
-	Data        interface{}
-	MsgError    string
-}
-
-var myapp = app{
+//Myapp ...
+var Myapp = models.App{
 	UserLogged: false,
 }
 
-var database *sql.DB
-
 func init() {
-	tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
-	connectDB()
-	getUsers()
+	// Init server
+	server.InitServer()
 }
 
 func main() {
 
 	router := httprouter.New()
 
-	router.GET("/", indexHandler)
+	// Create controllers
+	userController := controllers.NewUserController()
+	indexController := controllers.NewIndexController()
+
+	router.GET("/", indexController.Dispatch)
 	router.ServeFiles("/static/*filepath", http.Dir("static"))
-	// user/update	-> user controller
-	// user/delete -> user controller
-	router.GET("/user/:action", userHandler)
-	router.POST("/user/:action", userHandler)
-	router.GET("/settings", settingsHandler)
-	router.POST("/settings", settingsHandler)
+	router.GET("/user/:action", userController.Dispatch)
+	router.POST("/user/:action", userController.Dispatch)
+	// router.GET("/settings", settingsHandler)
+	// router.POST("/settings", settingsHandler)
+	//router.GET("/favicon.ico", http.NotFoundHandler())
 	// http.Handle("/favicon.ico", http.NotFoundHandler())
 	http.ListenAndServe(":8080", router)
 }
 
-func indexHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
-	templateData := tplData{
-		Title:     "Index",
-		TabActive: "index",
-	}
-	myapp.CurrentView = "index"
-	myapp.Data = templateData
+// func settingsHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
+// 	var myapp = models.App{}
+// 	if req.Method == http.MethodPost {
+// 		setSettingsHandler(w, req)
+// 	} else {
+// 		templateData := models.TplData{
+// 			Title:     "Settings",
+// 			TabActive: "settings",
+// 		}
+// 		myapp.CurrentView = "settings"
+// 		myapp.Data = templateData
+// 		fmt.Println(myapp)
+// 		err := server.Server.Tpl.ExecuteTemplate(w, "settings.gohtml", myapp)
+// 		if err != nil {
+// 			log.Println(err)
+// 		}
+// 	}
+// }
 
-	err := tpl.ExecuteTemplate(w, "index.gohtml", myapp)
+// func createUserHandler(w http.ResponseWriter, req *http.Request) {
+// 	var myapp = models.App{}
+// 	fmt.Println("createuserhandler")
+// 	fmt.Println(req.URL.Path)
+// 	templateData := models.TplData{
+// 		Title:     "Create Account",
+// 		TabActive: "account",
+// 	}
+//
+// 	// post request, http.MethodPost is a constant
+// 	if req.Method == http.MethodPost {
+// 		email := req.FormValue("email")
+// 		password := req.FormValue("password")
+//
+// 		// Check if there is a user with that email
+// 		_, err := getUser(email)
+// 		if err != nil {
+// 			if err == sql.ErrNoRows {
+// 				// User does not exists
+// 				if inserted := insertUser(email, password); inserted {
+// 					myapp.UserLogged = true
+// 					userSettings := models.Settings{}
+// 					userSettings = userSettings.New()
+// 					myapp.User = models.User{Email: email, Password: password, Settings: userSettings}
+//
+// 				}
+// 				myapp.Data = templateData
+// 				err := server.Server.Tpl.ExecuteTemplate(w, "account.gohtml", myapp)
+// 				if err != nil {
+// 					log.Println(err)
+// 				}
+// 			}
+// 		} else {
+// 			// User already exists
+// 			myapp.MsgError = "User account already exists"
+// 			err := server.Server.Tpl.ExecuteTemplate(w, "createaccount.gohtml", myapp)
+// 			if err != nil {
+// 				log.Println(err)
+// 			}
+// 		}
+//
+// 	} else {
+// 		// Is not a POST request! we only want to show the form to create a new account
+// 		myapp.Data = templateData
+// 		err := server.Server.Tpl.ExecuteTemplate(w, "createaccount.gohtml", myapp)
+// 		if err != nil {
+// 			log.Println(err)
+// 		}
+// 	}
+// }
 
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "Internal server error - Resource not found", http.StatusInternalServerError)
-	}
+// func logoutHandler(w http.ResponseWriter, req *http.Request) {
+// 	var myapp = models.App{}
+// 	if myapp.UserLogged {
+// 		myapp.UserLogged = false
+// 		myapp.User = models.User{}
+// 		templateData := models.TplData{
+// 			Title:     "Account",
+// 			TabActive: "account",
+// 		}
+// 		myapp.Data = templateData
+// 		err := server.Server.Tpl.ExecuteTemplate(w, "account.gohtml", myapp)
+// 		if err != nil {
+// 			log.Println(err)
+// 		}
+// 	}
+// }
 
-}
+// func loginHandler(w http.ResponseWriter, req *http.Request) {
+// 	templateData := models.TplData{
+// 		Title:     "Login",
+// 		TabActive: "account",
+// 	}
+// 	if req.Method == http.MethodPost {
+// 		email := req.FormValue("email")
+// 		password := req.FormValue("password")
+// 		loggedIn, errMsg := loginUser(email, password)
+// 		if !loggedIn {
+// 			log.Println(errMsg)
+// 			myapp.MsgError = errMsg
+// 		}
+// 	}
+// 	myapp.Data = templateData
+// 	err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+// }
 
-func settingsHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
-	if req.Method == http.MethodPost {
-		setSettingsHandler(w, req)
-	} else {
-		templateData := tplData{
-			Title:     "Settings",
-			TabActive: "settings",
-		}
-		myapp.CurrentView = "settings"
-		myapp.Data = templateData
-		fmt.Println(myapp)
-		err := tpl.ExecuteTemplate(w, "settings.gohtml", myapp)
-		if err != nil {
-			log.Println(err)
-		}
-	}
-}
-
-func userHandler(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	// Get action
-	action := params.ByName("action")
-	fmt.Println(action)
-	switch action {
-	case "login":
-		loginHandler(w, r)
-		break
-	case "create":
-		createUserHandler(w, r)
-		break
-	case "logout":
-		logoutHandler(w, r)
-		break
-	}
-}
-
-func createUserHandler(w http.ResponseWriter, req *http.Request) {
-	fmt.Println("createuserhandler")
-	fmt.Println(req.URL.Path)
-	templateData := tplData{
-		Title:     "Create Account",
-		TabActive: "account",
-	}
-
-	// post request, http.MethodPost is a constant
-	if req.Method == http.MethodPost {
-		email := req.FormValue("email")
-		password := req.FormValue("password")
-
-		// Check if there is a user with that email
-		_, err := getUser(email)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				// User does not exists
-				if inserted := insertUser(email, password); inserted {
-					myapp.UserLogged = true
-					userSettings := settings{}
-					userSettings = userSettings.new()
-					myapp.User = user{Email: email, Password: password, Settings: userSettings}
-
-				}
-				myapp.Data = templateData
-				err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
-				if err != nil {
-					log.Println(err)
-				}
-			}
-		} else {
-			// User already exists
-			myapp.MsgError = "User account already exists"
-			err := tpl.ExecuteTemplate(w, "createaccount.gohtml", myapp)
-			if err != nil {
-				log.Println(err)
-			}
-		}
-
-	} else {
-		// Is not a POST request! we only want to show the form to create a new account
-		myapp.Data = templateData
-		err := tpl.ExecuteTemplate(w, "createaccount.gohtml", myapp)
-		if err != nil {
-			log.Println(err)
-		}
-	}
-}
-
-func logoutHandler(w http.ResponseWriter, req *http.Request) {
-	if myapp.UserLogged {
-		myapp.UserLogged = false
-		myapp.User = user{}
-		templateData := tplData{
-			Title:     "Account",
-			TabActive: "account",
-		}
-		myapp.Data = templateData
-		err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
-		if err != nil {
-			log.Println(err)
-		}
-	}
-}
-
-func loginHandler(w http.ResponseWriter, req *http.Request) {
-	templateData := tplData{
-		Title:     "Login",
-		TabActive: "account",
-	}
-	if req.Method == http.MethodPost {
-		email := req.FormValue("email")
-		password := req.FormValue("password")
-		loggedIn, errMsg := loginUser(email, password)
-		if !loggedIn {
-			log.Println(errMsg)
-			myapp.MsgError = errMsg
-		}
-	}
-	myapp.Data = templateData
-	err := tpl.ExecuteTemplate(w, "account.gohtml", myapp)
-	if err != nil {
-		log.Println(err)
-	}
-}
-
-//login
-func loginUser(email string, password string) (bool, string) {
-	var success = false
-	var msg = ""
-	myapp.MsgError = ""
-	if !myapp.UserLogged {
-		// Find a user with email and password match
-		foundUser, err := getUser(email)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				// User does not exists
-				msg = "User account does not exists"
-			} else {
-				log.Println(err)
-			}
-		} else {
-			if strings.Trim(foundUser.Password, " ") == strings.Trim(password, " ") {
-				// Authentication passed
-				myapp.UserLogged = true
-				fmt.Println(foundUser)
-				myapp.User = foundUser
-				success = true
-			} else {
-				// Authentication error
-				msg = "Authentication Error"
-				//myapp.MsgError = "Authentication Error"
-			}
-		}
-
-	}
-	return success, msg
-}
-
-func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
-	templateData := tplData{
-		Title:     "Your Running Times",
-		TabActive: "times",
-	}
-	var maxTempVal float64
-	var minTempVal float64
-
-	s := settings{MinTemp: minDefaultTemperature, MaxTemp: maxDefaultTemperature}
-	myapp.CurrentView = "settings"
-	minTemp := req.FormValue("minTemp")
-	maxTemp := req.FormValue("maxTemp")
-
-	// if maxTemp was passed on the form
-	if maxTemp != "" {
-		maxTempVal, _ = strconv.ParseFloat(maxTemp, 64)
-		s.MaxTemp = maxTempVal
-	}
-
-	if minTemp != "" {
-		minTempVal, _ := strconv.ParseFloat(minTemp, 64)
-		s.MinTemp = minTempVal
-	}
-
-	if myapp.UserLogged && (minTemp != "" || maxTemp != "") {
-		// Update database if user is logged in and temperatures passed on the form
-		// are different than DB values
-		changedValues := make(map[string]interface{})
-		// Check if maxTemp changed
-		if s.MaxTemp != myapp.User.Settings.MaxTemp {
-			changedValues["MaxTemp"] = maxTempVal
-			myapp.User.Settings.MaxTemp = maxTempVal
-		}
-
-		// Check if minTemp changed
-		//fmt.Println("minChanges", minTempVal, myapp.User.Settings.MinTemp)
-		if s.MinTemp != myapp.User.Settings.MinTemp {
-			changedValues["MinTemp"] = minTempVal
-			myapp.User.Settings.MinTemp = minTempVal
-		}
-
-		if len(changedValues) > 0 {
-			fmt.Println("Update user information ", minTemp, maxTemp)
-			updateSuccess := updateUser(myapp.User.Email, changedValues)
-			if updateSuccess {
-			}
-		}
-	}
-
-	var data = makeWeatherAPIcall(s)
-	templateData.Data = data
-	myapp.Data = templateData
-	fmt.Println(myapp)
-	err := tpl.ExecuteTemplate(w, "times.gohtml", myapp)
-	if err != nil {
-		log.Println(err)
-	}
-}
-
-// makeWeatherAPIcall
-func makeWeatherAPIcall(s settings) responsetype {
-	apiKey := "4793867f02934a10b3033be4d68f385c"
-	baseURL := "http://api.openweathermap.org/data/2.5/forecast?q=lakewood,co&units=imperial"
-	query := baseURL + "&appid=" + apiKey + "&id=5427946"
-
-	res, err := http.Get(query)
-	if err != nil {
-		log.Fatal(err)
-	}
-	response, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var r = responsetype{}
-	json.Unmarshal(response, &r)
-	fmt.Println("compare values with settings", s)
-	r = parseData(r, s)
-
-	return r
-}
-
-// parseData
-// This function parses the Weather API data
-// Transforms ts into readable data for the view
-func parseData(data responsetype, s settings) responsetype {
-	for i := 0; i < len(data.List); i++ {
-		elem := data.List[i]
-		tsString := strconv.Itoa(elem.Ts)
-		tsFormatted, err := strconv.ParseInt(tsString, 10, 64)
-		if err != nil {
-			panic(err)
-		}
-		data.List[i].TsFormatted = time.Unix(tsFormatted, 0)
-
-		if s.MinTemp <= elem.TempValues.TempMin && s.MaxTemp >= elem.TempValues.TempMax {
-			data.List[i].GoRun = true
-		}
-
-	}
-	return data
-}
-
-// connectDB
-func connectDB() {
-	databaseConn, err := sql.Open("postgres", "user="+dbUser+" password="+dbPassword+" dbname="+dbName+" sslmode=disable")
-	if err != nil {
-		log.Fatal(err)
-	}
-	database = databaseConn
-}
-
-// getUsers
-func getUsers() {
-	rows, err := database.Query(`SELECT email,password FROM usuario`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer rows.Close()
-
-	var (
-		email    string
-		password string
-	)
-	for rows.Next() {
-		err := rows.Scan(&email, &password)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(email, password)
-	}
-}
-
-// getUser
-func getUser(email string) (user, error) {
-	u := user{}
-	var pass, em string
-	var minTemp, maxTemp float64
-
-	sqlStatement := `SELECT email,password,mintemp,maxtemp FROM usuario WHERE email=$1;`
-	// Replace 3 with an ID from your database or another random
-	// value to test the no rows use case.
-
-	err := database.QueryRow(sqlStatement, email).Scan(&em, &pass, &minTemp, &maxTemp)
-	switch {
-	case err == sql.ErrNoRows:
-	case err != nil:
-		log.Fatal(err)
-	default:
-		u.Email = em
-		u.Password = pass
-		u.Settings.MinTemp = minTemp
-		u.Settings.MaxTemp = maxTemp
-	}
-	return u, err
-}
-
-// updateUser
-func updateUser(userID string, values map[string]interface{}) bool {
-	updated := false
-	setFields := ""
-	var setValues []interface{}
-	cnt := 0
-	paramIndex := 2
-	// First parameter is user id
-	setValues = append(setValues, userID)
-	for key, val := range values {
-		if cnt > 0 {
-			setFields += " , "
-		}
-		setFields += key + "= $" + strconv.Itoa(paramIndex)
-		setValues = append(setValues, val)
-		cnt++
-		paramIndex++
-	}
-	//fmt.Println("setvalues", setFields)
-	// Update user information new values
-	sqlStatement := `
-	UPDATE USUARIO
-	SET ` + setFields + `
-	WHERE email = $1;`
-	_, err := database.Exec(sqlStatement, setValues...)
-	if err != nil {
-		log.Fatal(err)
-	}
-	updated = true
-
-	return updated
-}
-
-//insertUser
-func insertUser(email string, password string) bool {
-	var userid string
-	//" + minDefaultTemperature + "','" + maxDefaultTemperature + "
-	err := database.QueryRow("INSERT INTO USUARIO (email,password) VALUES('" + email + "','" + password + "') RETURNING email").Scan(&userid)
-	if err != nil {
-		log.Fatal(err)
-		return false
-	}
-
-	fmt.Println("userid created", userid)
-	return true
-}
+// func setSettingsHandler(w http.ResponseWriter, req *http.Request) {
+// 	var myapp = models.App{}
+// 	templateData := models.TplData{
+// 		Title:     "Your Running Times",
+// 		TabActive: "times",
+// 	}
+// 	var maxTempVal float64
+// 	var minTempVal float64
+//
+// 	s := models.Settings{MinTemp: minDefaultTemperature, MaxTemp: maxDefaultTemperature}
+// 	myapp.CurrentView = "settings"
+// 	minTemp := req.FormValue("minTemp")
+// 	maxTemp := req.FormValue("maxTemp")
+//
+// 	// if maxTemp was passed on the form
+// 	if maxTemp != "" {
+// 		maxTempVal, _ = strconv.ParseFloat(maxTemp, 64)
+// 		s.MaxTemp = maxTempVal
+// 	}
+//
+// 	if minTemp != "" {
+// 		minTempVal, _ = strconv.ParseFloat(minTemp, 64)
+// 		s.MinTemp = minTempVal
+// 	}
+//
+// 	if myapp.UserLogged && (minTemp != "" || maxTemp != "") {
+// 		// Update database if user is logged in and temperatures passed on the form
+// 		// are different than DB values
+// 		changedValues := make(map[string]interface{})
+// 		// Check if maxTemp changed
+// 		if s.MaxTemp != myapp.User.Settings.MaxTemp {
+// 			changedValues["MaxTemp"] = maxTempVal
+// 			myapp.User.Settings.MaxTemp = maxTempVal
+// 		}
+//
+// 		// Check if minTemp changed
+// 		//fmt.Println("minChanges", minTempVal, myapp.User.Settings.MinTemp)
+// 		if s.MinTemp != myapp.User.Settings.MinTemp {
+// 			changedValues["MinTemp"] = minTempVal
+// 			myapp.User.Settings.MinTemp = minTempVal
+// 		}
+//
+// 		if len(changedValues) > 0 {
+// 			fmt.Println("Update user information ", minTemp, maxTemp)
+// 			updateSuccess := updateUser(myapp.User.Email, changedValues)
+// 			if updateSuccess {
+// 			}
+// 		}
+// 	}
+//
+// 	var data = makeWeatherAPIcall(s)
+// 	templateData.Data = data
+// 	myapp.Data = templateData
+// 	fmt.Println(myapp)
+// 	err := server.Server.Tpl.ExecuteTemplate(w, "times.gohtml", myapp)
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+// }
