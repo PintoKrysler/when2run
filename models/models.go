@@ -84,3 +84,10 @@ func (r *Settings) New() Settings {
 		MaxTemp: maxDefaultTemperature,
 	}
 }
+
+func (u User) isEmpty() bool {
+	if u.Email == "" && u.Password == "" {
+		return true
+	}
+	return false
+}

@@ -81,11 +81,18 @@ func (uc UserController) loginHandler(w http.ResponseWriter, req *http.Request) 
 			fmt.Println("not session auth")
 			email := req.FormValue("email")
 			password := req.FormValue("password")
-			loggedIn, errMsg := login(email, password)
-			if !loggedIn {
+			loggedIn, loggedUser, errMsg := login(email, password)
+			if loggedIn {
+				session.Values["authenticated"] = true
+				session.Values["user"] = loggedUser
+
+			} else {
 				log.Println(errMsg)
-				//myapp.MsgError = errMsg
+				session.Values["authenticated"] = false
+				session.Values["user"] = loggedUser
+				myapp.MsgError = errMsg
 			}
+			session.Save(req, w)
 		}
 	}
 
@@ -97,10 +104,10 @@ func (uc UserController) loginHandler(w http.ResponseWriter, req *http.Request) 
 }
 
 //login
-func login(email string, password string) (bool, string) {
+func login(email string, password string) (bool, models.User, string) {
 	var success = false
 	var msg = ""
-
+	var u = models.User{}
 	// Find a user with email and password match
 	foundUser, err := getUser(email)
 	if err != nil {
@@ -113,9 +120,7 @@ func login(email string, password string) (bool, string) {
 	} else {
 		if strings.Trim(foundUser.Password, " ") == strings.Trim(password, " ") {
 			// Authentication passed
-			//myapp.UserLogged = true
-			fmt.Println(foundUser)
-			//myapp.User = foundUser
+			u = foundUser
 			success = true
 		} else {
 			// Authentication error
@@ -123,9 +128,7 @@ func login(email string, password string) (bool, string) {
 			//myapp.MsgError = "Authentication Error"
 		}
 	}
-	fmt.Println("login?")
-	fmt.Println(success)
-	return success, msg
+	return success, u, msg
 }
 
 func (uc UserController) logout(w http.ResponseWriter, r *http.Request) {
