@@ -42,9 +42,58 @@ func (uc UserController) Dispatch(w http.ResponseWriter, r *http.Request, params
 }
 
 // CreateUser creates a new user instance
-func (uc UserController) create(w http.ResponseWriter, r *http.Request) {
-	// u := models.User{}
+func (uc UserController) create(w http.ResponseWriter, req *http.Request) {
+	var myapp = models.App{}
+	fmt.Println("createuserhandler")
+	fmt.Println(req.URL.Path)
+	templateData := models.TplData{
+		Title:     "Create Account",
+		TabActive: "account",
+	}
+	session, _ := server.Server.Sess.Get(req, "when2runSess")
+	// post request, http.MethodPost is a constant
+	if req.Method == http.MethodPost {
+		email := req.FormValue("email")
+		password := req.FormValue("password")
 
+		// Check if there is a user with that email
+		_, err := getUser(email)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				// User does not exists
+				if inserted := insertUser(email, password); inserted {
+					myapp.UserLogged = true
+					userSettings := models.Settings{}
+					userSettings = userSettings.New()
+					myapp.User = models.User{Email: email, Password: password, Settings: userSettings}
+					session.Values["authenticated"] = true
+					session.Values["user"] = myapp.User
+				}
+				myapp.Data = templateData
+				err := server.Server.Tpl.ExecuteTemplate(w, "account.gohtml", myapp)
+				if err != nil {
+					log.Println(err)
+				}
+			}
+		} else {
+			// User already exists
+			session.Values["authenticated"] = false
+			session.Values["user"] = models.User{}
+			myapp.MsgError = "User account already exists"
+			err := server.Server.Tpl.ExecuteTemplate(w, "createaccount.gohtml", myapp)
+			if err != nil {
+				log.Println(err)
+			}
+		}
+		session.Save(req, w)
+	} else {
+		// Is not a POST request! we only want to show the form to create a new account
+		myapp.Data = templateData
+		err := server.Server.Tpl.ExecuteTemplate(w, "createaccount.gohtml", myapp)
+		if err != nil {
+			log.Println(err)
+		}
+	}
 }
 
 // UpdateUser updates an existing user instance
@@ -81,6 +130,8 @@ func (uc UserController) loginHandler(w http.ResponseWriter, req *http.Request) 
 			email := req.FormValue("email")
 			password := req.FormValue("password")
 			loggedIn, loggedUser, errMsg := login(email, password)
+			fmt.Println("logged user?")
+			fmt.Println(loggedUser)
 			if loggedIn {
 				session.Values["authenticated"] = true
 				session.Values["user"] = loggedUser
@@ -156,11 +207,6 @@ func login(email string, password string) (bool, models.User, string) {
 	return success, u, msg
 }
 
-func (uc UserController) logout(w http.ResponseWriter, r *http.Request) {
-	// u := models.User{}
-
-}
-
 // getUsers
 func getUsers() {
 	rows, err := server.Server.Db.Query(`SELECT email,password FROM usuario`)
@@ -186,7 +232,7 @@ func getUsers() {
 func getUser(email string) (models.User, error) {
 	u := models.User{}
 	var pass, em string
-	var minTemp, maxTemp float64
+	var minTemp, maxTemp sql.NullFloat64
 
 	sqlStatement := `SELECT email,password,mintemp,maxtemp FROM usuario WHERE email=$1;`
 	// Replace 3 with an ID from your database or another random
@@ -200,8 +246,12 @@ func getUser(email string) (models.User, error) {
 	default:
 		u.Email = em
 		u.Password = pass
-		u.Settings.MinTemp = minTemp
-		u.Settings.MaxTemp = maxTemp
+		if minTemp.Valid {
+			u.Settings.MinTemp = minTemp.Float64
+		}
+		if maxTemp.Valid {
+			u.Settings.MaxTemp = maxTemp.Float64
+		}
 	}
 	return u, err
 }
@@ -242,6 +292,7 @@ func updateUser(userID string, values map[string]interface{}) bool {
 //insertUser
 func insertUser(email string, password string) bool {
 	var userid string
+	fmt.Println("insertUser", email, password)
 	//" + minDefaultTemperature + "','" + maxDefaultTemperature + "
 	err := server.Server.Db.QueryRow("INSERT INTO USUARIO (email,password) VALUES('" + email + "','" + password + "') RETURNING email").Scan(&userid)
 	if err != nil {
@@ -252,3 +303,54 @@ func insertUser(email string, password string) bool {
 	fmt.Println("userid created", userid)
 	return true
 }
+
+// func createUserHandler(w http.ResponseWriter, req *http.Request) {
+// 	var myapp = models.App{}
+// 	fmt.Println("createuserhandler")
+// 	fmt.Println(req.URL.Path)
+// 	templateData := models.TplData{
+// 		Title:     "Create Account",
+// 		TabActive: "account",
+// 	}
+//
+// 	// post request, http.MethodPost is a constant
+// 	if req.Method == http.MethodPost {
+// 		email := req.FormValue("email")
+// 		password := req.FormValue("password")
+//
+// 		// Check if there is a user with that email
+// 		_, err := getUser(email)
+// 		if err != nil {
+// 			if err == sql.ErrNoRows {
+// 				// User does not exists
+// 				if inserted := insertUser(email, password); inserted {
+// 					myapp.UserLogged = true
+// 					userSettings := models.Settings{}
+// 					userSettings = userSettings.New()
+// 					myapp.User = models.User{Email: email, Password: password, Settings: userSettings}
+//
+// 				}
+// 				myapp.Data = templateData
+// 				err := server.Server.Tpl.ExecuteTemplate(w, "account.gohtml", myapp)
+// 				if err != nil {
+// 					log.Println(err)
+// 				}
+// 			}
+// 		} else {
+// 			// User already exists
+// 			myapp.MsgError = "User account already exists"
+// 			err := server.Server.Tpl.ExecuteTemplate(w, "createaccount.gohtml", myapp)
+// 			if err != nil {
+// 				log.Println(err)
+// 			}
+// 		}
+//
+// 	} else {
+// 		// Is not a POST request! we only want to show the form to create a new account
+// 		myapp.Data = templateData
+// 		err := server.Server.Tpl.ExecuteTemplate(w, "createaccount.gohtml", myapp)
+// 		if err != nil {
+// 			log.Println(err)
+// 		}
+// 	}
+// }
