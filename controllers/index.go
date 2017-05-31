@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -21,7 +20,6 @@ func NewIndexController() *IndexController {
 
 // Dispatch creates a new user instance
 func (ic IndexController) Dispatch(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	fmt.Println("Index Dispatch!")
 	ic.indexHandler(w, r)
 }
 

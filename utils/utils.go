@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -30,7 +29,7 @@ func MakeWeatherAPIcall(s models.Settings) models.Responsetype {
 
 	var r = models.Responsetype{}
 	json.Unmarshal(response, &r)
-	fmt.Println("compare values with settings", s)
+	//fmt.Println("compare values with settings", s)
 	r = parseData(r, s)
 
 	return r

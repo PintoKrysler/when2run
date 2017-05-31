@@ -26,8 +26,6 @@ func NewUserController() *UserController {
 // Dispatch creates a new user instance
 func (uc UserController) Dispatch(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	action := params.ByName("action")
-	fmt.Println("User Dispatch!")
-	fmt.Println(action)
 	switch action {
 	case "login":
 		uc.loginHandler(w, r)
@@ -48,8 +46,6 @@ func (uc UserController) Dispatch(w http.ResponseWriter, r *http.Request, params
 // CreateUser creates a new user instance
 func (uc UserController) create(w http.ResponseWriter, req *http.Request) {
 	var myapp = models.App{}
-	fmt.Println("createuserhandler")
-	fmt.Println(req.URL.Path)
 	templateData := models.TplData{
 		Title:     "Create Account",
 		TabActive: "account",
@@ -156,7 +152,7 @@ func (uc UserController) updateHandler(w http.ResponseWriter, req *http.Request)
 		}
 
 		if len(changedValues) > 0 {
-			fmt.Println("Update user information ", minTemp, maxTemp)
+			//fmt.Println("Update user information ", minTemp, maxTemp)
 			updateSuccess := updateUser(myapp.User.Email, changedValues)
 			if updateSuccess {
 				// Change value of user
@@ -180,7 +176,6 @@ func (uc UserController) updateHandler(w http.ResponseWriter, req *http.Request)
 	var data = utils.MakeWeatherAPIcall(s)
 	templateData.Data = data
 	myapp.Data = templateData
-	fmt.Println(myapp)
 	err = server.Server.Tpl.ExecuteTemplate(w, "times.gohtml", myapp)
 	if err != nil {
 		log.Println(err)
@@ -229,20 +224,19 @@ func (uc UserController) loginHandler(w http.ResponseWriter, req *http.Request) 
 				session.Values["user"] = loggedUser
 				myapp.MsgError = errMsg
 			}
-			fmt.Println("Save session")
 			session.Save(req, w)
 		} else {
-			fmt.Println("already authenticated")
-			fmt.Println(auth)
-			var u = models.User{}
+			fmt.Println("Already logged in")
 			if u, ok := session.Values["user"].(models.User); !ok {
 				// Handle the case that it's not an expected type
 				if u.IsEmpty() {
+					// user is empty
 					session.Values["authenticated"] = false
 					session.Save(req, w)
+				} else {
+					fmt.Println("current user is ", u)
 				}
 			}
-			fmt.Println(u)
 		}
 	}
 
@@ -280,7 +274,7 @@ func (uc UserController) logoutHandler(w http.ResponseWriter, req *http.Request)
 			log.Println(err)
 		}
 	} else {
-		fmt.Println("logout un authenticated user")
+		//fmt.Println("logout un authenticated user")
 	}
 }
 
@@ -328,7 +322,7 @@ func getUsers() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(email, password)
+		//fmt.Println(email, password)
 	}
 }
 
@@ -396,7 +390,7 @@ func updateUser(userID string, values map[string]interface{}) bool {
 //insertUser
 func insertUser(email string, password string) bool {
 	var userid string
-	fmt.Println("insertUser", email, password)
+	//fmt.Println("insertUser", email, password)
 	//" + minDefaultTemperature + "','" + maxDefaultTemperature + "
 	err := server.Server.Db.QueryRow("INSERT INTO USUARIO (email,password) VALUES('" + email + "','" + password + "') RETURNING email").Scan(&userid)
 	if err != nil {
@@ -404,7 +398,7 @@ func insertUser(email string, password string) bool {
 		return false
 	}
 
-	fmt.Println("userid created", userid)
+	//fmt.Println("userid created", userid)
 	return true
 }
 
@@ -422,7 +416,6 @@ func (uc UserController) settingsHandler(w http.ResponseWriter, req *http.Reques
 		session, _ := server.Server.Sess.Get(req, "when2runSess")
 		// Check if user is authenticated using session
 		if auth, ok := session.Values["authenticated"].(bool); ok && auth {
-			fmt.Println("Settings ok && auth")
 			myapp.UserLogged = session.Values["authenticated"].(bool)
 			myapp.User = session.Values["user"].(models.User)
 		}
