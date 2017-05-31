@@ -2,6 +2,7 @@ package server
 
 import (
 	"database/sql"
+	"encoding/gob"
 	"html/template"
 	"log"
 
@@ -17,6 +18,10 @@ const (
 
 //Server ..
 var Server models.Server
+
+func init() {
+	gob.Register(models.User{})
+}
 
 func main() {
 

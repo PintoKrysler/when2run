@@ -1,7 +1,7 @@
 {{define "nav"}}
 <ul class="nav nav-pills">
   <li role="presentation" {{if eq .Data.TabActive "index"}} class="active" {{end}}><a href="/">Home</a></li>
-  <li role="presentation" {{if eq .Data.TabActive "settings"}} class="active" {{end}}><a href="/settings">Get Times</a></li>
+  <li role="presentation" {{if eq .Data.TabActive "settings"}} class="active" {{end}}><a href="/user/settings">Get Times</a></li>
   {{if .UserLogged}}
     <li role="presentation" style="float:right" ><a href="/user/logout">Logout</a></li>
   {{else}}

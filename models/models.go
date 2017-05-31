@@ -8,9 +8,10 @@ import (
 	"github.com/gorilla/sessions"
 )
 
+// Constants temperatures
 const (
-	minDefaultTemperature float64 = 0
-	maxDefaultTemperature float64 = 110
+	MinDefaultTemperature float64 = 0
+	MaxDefaultTemperature float64 = 110
 )
 
 type (
@@ -80,12 +81,12 @@ type (
 //New creates new settings with defaults temperatures
 func (r *Settings) New() Settings {
 	return Settings{
-		MinTemp: minDefaultTemperature,
-		MaxTemp: maxDefaultTemperature,
+		MinTemp: MinDefaultTemperature,
+		MaxTemp: MaxDefaultTemperature,
 	}
 }
 
-func (u User) isEmpty() bool {
+func (u User) IsEmpty() bool {
 	if u.Email == "" && u.Password == "" {
 		return true
 	}

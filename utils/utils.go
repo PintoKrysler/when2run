@@ -12,8 +12,8 @@ import (
 	"github.com/pintokrysler/when2run/models"
 )
 
-// makeWeatherAPIcall
-func makeWeatherAPIcall(s models.Settings) models.Responsetype {
+// MakeWeatherAPIcall ...
+func MakeWeatherAPIcall(s models.Settings) models.Responsetype {
 	apiKey := "4793867f02934a10b3033be4d68f385c"
 	baseURL := "http://api.openweathermap.org/data/2.5/forecast?q=lakewood,co&units=imperial"
 	query := baseURL + "&appid=" + apiKey + "&id=5427946"

@@ -10,11 +10,6 @@ import (
 	"github.com/pintokrysler/when2run/server"
 )
 
-const (
-	minDefaultTemperature float64 = 0
-	maxDefaultTemperature float64 = 110
-)
-
 //Myapp ...
 var Myapp = models.App{
 	UserLogged: false,
@@ -57,57 +52,6 @@ func main() {
 // 		myapp.Data = templateData
 // 		fmt.Println(myapp)
 // 		err := server.Server.Tpl.ExecuteTemplate(w, "settings.gohtml", myapp)
-// 		if err != nil {
-// 			log.Println(err)
-// 		}
-// 	}
-// }
-
-// func createUserHandler(w http.ResponseWriter, req *http.Request) {
-// 	var myapp = models.App{}
-// 	fmt.Println("createuserhandler")
-// 	fmt.Println(req.URL.Path)
-// 	templateData := models.TplData{
-// 		Title:     "Create Account",
-// 		TabActive: "account",
-// 	}
-//
-// 	// post request, http.MethodPost is a constant
-// 	if req.Method == http.MethodPost {
-// 		email := req.FormValue("email")
-// 		password := req.FormValue("password")
-//
-// 		// Check if there is a user with that email
-// 		_, err := getUser(email)
-// 		if err != nil {
-// 			if err == sql.ErrNoRows {
-// 				// User does not exists
-// 				if inserted := insertUser(email, password); inserted {
-// 					myapp.UserLogged = true
-// 					userSettings := models.Settings{}
-// 					userSettings = userSettings.New()
-// 					myapp.User = models.User{Email: email, Password: password, Settings: userSettings}
-//
-// 				}
-// 				myapp.Data = templateData
-// 				err := server.Server.Tpl.ExecuteTemplate(w, "account.gohtml", myapp)
-// 				if err != nil {
-// 					log.Println(err)
-// 				}
-// 			}
-// 		} else {
-// 			// User already exists
-// 			myapp.MsgError = "User account already exists"
-// 			err := server.Server.Tpl.ExecuteTemplate(w, "createaccount.gohtml", myapp)
-// 			if err != nil {
-// 				log.Println(err)
-// 			}
-// 		}
-//
-// 	} else {
-// 		// Is not a POST request! we only want to show the form to create a new account
-// 		myapp.Data = templateData
-// 		err := server.Server.Tpl.ExecuteTemplate(w, "createaccount.gohtml", myapp)
 // 		if err != nil {
 // 			log.Println(err)
 // 		}
