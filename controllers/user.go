@@ -12,6 +12,7 @@ import (
 	"github.com/pintokrysler/when2run/models"
 	"github.com/pintokrysler/when2run/server"
 	"github.com/pintokrysler/when2run/utils"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // UserController ...
@@ -278,6 +279,16 @@ func (uc UserController) logoutHandler(w http.ResponseWriter, req *http.Request)
 	}
 }
 
+func passMatch(p1 string, hash []byte) bool {
+	p1 = strings.Trim(p1, " ")
+
+	// Comparing the password with the hash
+	if err := bcrypt.CompareHashAndPassword(hash, []byte(p1)); err != nil {
+		return false
+	}
+	return true
+}
+
 //login
 func login(email string, password string) (bool, models.User, string) {
 	var success = false
@@ -293,7 +304,9 @@ func login(email string, password string) (bool, models.User, string) {
 			log.Println(err)
 		}
 	} else {
-		if strings.Trim(foundUser.Password, " ") == strings.Trim(password, " ") {
+		// Check if passwords match
+		match := passMatch(password, []byte(foundUser.Password))
+		if match {
 			// Authentication passed
 			u = foundUser
 			success = true
@@ -390,9 +403,16 @@ func updateUser(userID string, values map[string]interface{}) bool {
 //insertUser
 func insertUser(email string, password string) bool {
 	var userid string
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Fatal(err)
+	}
+	password = string(hash)
+	fmt.Println("Hash to store:", string(hash))
+
 	//fmt.Println("insertUser", email, password)
 	//" + minDefaultTemperature + "','" + maxDefaultTemperature + "
-	err := server.Server.Db.QueryRow("INSERT INTO USUARIO (email,password) VALUES('" + email + "','" + password + "') RETURNING email").Scan(&userid)
+	err = server.Server.Db.QueryRow("INSERT INTO USUARIO (email,password) VALUES('" + email + "','" + password + "') RETURNING email").Scan(&userid)
 	if err != nil {
 		log.Fatal(err)
 		return false
