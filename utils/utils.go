@@ -47,6 +47,10 @@ func parseData(data models.Responsetype, s models.Settings) models.Responsetype 
 			panic(err)
 		}
 		data.List[i].TsFormatted = time.Unix(tsFormatted, 0)
+		data.List[i].Weekday = data.List[i].TsFormatted.Weekday()
+		data.List[i].Month = data.List[i].TsFormatted.Month()
+		data.List[i].Day = data.List[i].TsFormatted.Day()
+		data.List[i].TimeFormatted = data.List[i].TsFormatted.Format("Mon Jan 2 15:04 MST")
 
 		if s.MinTemp <= elem.TempValues.TempMin && s.MaxTemp >= elem.TempValues.TempMax {
 			data.List[i].GoRun = true

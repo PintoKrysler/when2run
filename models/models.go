@@ -50,10 +50,14 @@ type (
 
 	//ResponseElem ...
 	responseElem struct {
-		Ts          int          `json:"dt"`
-		TempValues  responseMain `json:"main"`
-		TsFormatted time.Time
-		GoRun       bool
+		Ts            int          `json:"dt"`
+		TempValues    responseMain `json:"main"`
+		TsFormatted   time.Time
+		GoRun         bool
+		Weekday       time.Weekday
+		Day           int
+		Month         time.Month
+		TimeFormatted string
 	}
 
 	// Responsetype ...
