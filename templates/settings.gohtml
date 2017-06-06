@@ -3,6 +3,18 @@
 
 {{template "nav" .}}
 <form action="/user/settings" method="post">
+  <br>
+  <div class="form-group">
+    <div class="btn-group" role="group" aria-label="...">
+      <button type="button" class="btn btn-default">Mon</button>
+      <button type="button" class="btn btn-default">Tue</button>
+      <button type="button" class="btn btn-default">Wed</button>
+      <button type="button" class="btn btn-default">Thr</button>
+      <button type="button" class="btn btn-default">Fri</button>
+      <button type="button" class="btn btn-default">Sat</button>
+      <button type="button" class="btn btn-default">Sun</button>
+    </div>
+  </div>
   <div class="form-group">
     <label for="minTemp">Location</label>
     <input disabled type="text" class="form-control" id="minTemp" name="location" placeholder="Lakewood,CO">
@@ -21,6 +33,8 @@
       <div class="input-group-addon">F</div>
     </div>
   </div>
+
+
   <button type="submit" class="btn btn-default">Get Running Times</button>
 </form>
 
