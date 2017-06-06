@@ -3,7 +3,7 @@
   <li role="presentation" {{if eq .Data.TabActive "index"}} class="active" {{end}}><a href="/">Home</a></li>
   <li role="presentation" {{if eq .Data.TabActive "settings"}} class="active" {{end}}><a href="/user/settings">Get Times</a></li>
   {{if .UserLogged}}
-    <li role="presentation" style="float:right" ><a href="/user/logout">Logout</a></li>
+    <li role="presentation" style="float:right" ><a href="/user/logout"><small>{{.User.Email}}</small> Logout</a></li>
   {{else}}
     <li role="presentation" style="float:right" ><a href="/user/login">Login</a></li>
   {{end}}

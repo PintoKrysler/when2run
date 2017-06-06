@@ -211,6 +211,7 @@ func (uc UserController) loginHandler(w http.ResponseWriter, req *http.Request) 
 		}
 		// Check if user is authenticated using session
 		if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
+			fmt.Println("user not authenticated")
 			email := req.FormValue("email")
 			password := req.FormValue("password")
 			loggedIn, loggedUser, errMsg := login(email, password)
@@ -266,6 +267,7 @@ func (uc UserController) logoutHandler(w http.ResponseWriter, req *http.Request)
 			Title:     "Account",
 			TabActive: "account",
 		}
+		session.Options.MaxAge = -1
 		session.Values["authenticated"] = false
 		session.Values["user"] = noUser
 		session.Save(req, w)
@@ -436,7 +438,7 @@ func (uc UserController) settingsHandler(w http.ResponseWriter, req *http.Reques
 		session, _ := server.Server.Sess.Get(req, "when2runSess")
 		// Check if user is authenticated using session
 		if auth, ok := session.Values["authenticated"].(bool); ok && auth {
-			myapp.UserLogged = session.Values["authenticated"].(bool)
+			myapp.UserLogged = auth
 			myapp.User = session.Values["user"].(models.User)
 		}
 		err := server.Server.Tpl.ExecuteTemplate(w, "settings.gohtml", myapp)
