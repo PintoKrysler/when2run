@@ -16,4 +16,17 @@
     //   }
     // });
   });
+
+  $('.x_day').on('click',function(){
+    var day = $(this).data('day')
+    $(this).toggleClass('selected');
+    var val = '';
+    $('.x_day.selected').each(function(){
+        var curr_day = $(this).data('day');
+        val += curr_day+',';
+    });
+    if (val){
+      $('#days').val(val);
+    }
+  });
 })(jQuery);

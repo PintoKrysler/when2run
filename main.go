@@ -34,5 +34,5 @@ func main() {
 	router.POST("/user/:action", userController.Dispatch)
 	//router.GET("/favicon.ico", http.NotFoundHandler())
 	// http.Handle("/favicon.ico", http.NotFoundHandler())
-	http.ListenAndServe(":8080", router)
+	http.ListenAndServe(":1700", router)
 }

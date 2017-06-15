@@ -123,6 +123,13 @@ func (uc UserController) updateHandler(w http.ResponseWriter, req *http.Request)
 	myapp.CurrentView = "settings"
 	minTemp := req.FormValue("minTemp")
 	maxTemp := req.FormValue("maxTemp")
+	days := strings.Trim(req.FormValue("days"), ",")
+	if days != "" {
+		daysSlice := strings.Split(days, ",")
+		if len(daysSlice) > 0 {
+			s.Days = daysSlice
+		}
+	}
 
 	// if maxTemp was passed on the form
 	if maxTemp != "" {
@@ -173,7 +180,7 @@ func (uc UserController) updateHandler(w http.ResponseWriter, req *http.Request)
 			}
 		}
 	}
-
+	fmt.Println(s)
 	var data = utils.MakeWeatherAPIcall(s)
 	templateData.Data = data
 	myapp.Data = templateData

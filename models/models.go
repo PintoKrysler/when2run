@@ -39,6 +39,7 @@ type (
 	Settings struct {
 		MinTemp float64
 		MaxTemp float64
+		Days    []string
 	}
 
 	//ResponseMain ...
