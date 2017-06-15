@@ -124,12 +124,32 @@ func (uc UserController) updateHandler(w http.ResponseWriter, req *http.Request)
 	minTemp := req.FormValue("minTemp")
 	maxTemp := req.FormValue("maxTemp")
 	days := strings.Trim(req.FormValue("days"), ",")
+	// By default days are all, unless values are passed
+	var daysMap = make(map[int]bool)
 	if days != "" {
 		daysSlice := strings.Split(days, ",")
 		if len(daysSlice) > 0 {
-			s.Days = daysSlice
+			for _, val := range daysSlice {
+				intVal, err := strconv.Atoi(val)
+				if err != nil {
+					log.Println(err)
+				}
+				daysMap[intVal] = true
+			}
+		}
+	} else {
+		// All days
+		daysMap = map[int]bool{
+			0: true,
+			1: true,
+			2: true,
+			3: true,
+			4: true,
+			5: true,
+			6: true,
 		}
 	}
+	s.Days = daysMap
 
 	// if maxTemp was passed on the form
 	if maxTemp != "" {
@@ -180,7 +200,6 @@ func (uc UserController) updateHandler(w http.ResponseWriter, req *http.Request)
 			}
 		}
 	}
-	fmt.Println(s)
 	var data = utils.MakeWeatherAPIcall(s)
 	templateData.Data = data
 	myapp.Data = templateData

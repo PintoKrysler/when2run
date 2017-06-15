@@ -39,7 +39,7 @@ type (
 	Settings struct {
 		MinTemp float64
 		MaxTemp float64
-		Days    []string
+		Days    map[int]bool
 	}
 
 	//ResponseMain ...
@@ -50,7 +50,7 @@ type (
 	}
 
 	//ResponseElem ...
-	responseElem struct {
+	ResponseElem struct {
 		Ts            int          `json:"dt"`
 		TempValues    responseMain `json:"main"`
 		TsFormatted   time.Time
@@ -63,7 +63,7 @@ type (
 
 	// Responsetype ...
 	Responsetype struct {
-		List []responseElem `json:"list"`
+		List []ResponseElem `json:"list"`
 	}
 
 	// TplData ...
