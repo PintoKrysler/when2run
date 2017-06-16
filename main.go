@@ -1,7 +1,11 @@
 package main
 
 import (
+	"encoding/json"
+	"log"
 	"net/http"
+	"os"
+	"strconv"
 
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
@@ -15,9 +19,22 @@ var Myapp = models.App{
 	UserLogged: false,
 }
 
+var appConf models.AppConfiguration
+
 func init() {
+	// Read conf file
+	configurationFile := "config.json"
+	file, err := os.Open(configurationFile)
+	if err != nil {
+		log.Println(err)
+	}
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&appConf)
+	if err != nil {
+		log.Println(err)
+	}
 	// Init server
-	server.InitServer()
+	server.InitServer(appConf)
 }
 
 func main() {
@@ -34,5 +51,5 @@ func main() {
 	router.POST("/user/:action", userController.Dispatch)
 	//router.GET("/favicon.ico", http.NotFoundHandler())
 	// http.Handle("/favicon.ico", http.NotFoundHandler())
-	http.ListenAndServe(":1700", router)
+	http.ListenAndServe(":"+strconv.Itoa(appConf.Port), router)
 }

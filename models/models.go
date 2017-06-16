@@ -15,6 +15,17 @@ const (
 )
 
 type (
+	DBConfiguration struct {
+		ID       string
+		User     string
+		Password string
+		Name     string
+	}
+
+	AppConfiguration struct {
+		Port int
+		DB   DBConfiguration
+	}
 
 	// Controller interface has a Dispatcher
 	Controller interface {

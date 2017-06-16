@@ -10,12 +10,6 @@ import (
 	"github.com/pintokrysler/when2run/models"
 )
 
-const (
-	dbUser     = "postgres"
-	dbPassword = "postgres"
-	dbName     = "when2run"
-)
-
 //Server ..
 var Server models.Server
 
@@ -28,17 +22,17 @@ func main() {
 }
 
 // InitServer ..
-func InitServer() {
+func InitServer(conf models.AppConfiguration) {
 	// Init session
 	Server.Sess = sessions.NewCookieStore([]byte("something-very-secret"))
 	Server.Tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
-	connectDB()
+	connectDB(conf.DB)
 
 }
 
 // connectDB ...
-func connectDB() {
-	databaseConn, err := sql.Open("postgres", "user="+dbUser+" password="+dbPassword+" dbname="+dbName+" sslmode=disable")
+func connectDB(dbconf models.DBConfiguration) {
+	databaseConn, err := sql.Open("postgres", "user="+dbconf.User+" password="+dbconf.Password+" dbname="+dbconf.Name+" sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}
